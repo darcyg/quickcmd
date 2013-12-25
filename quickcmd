@@ -5,6 +5,11 @@ import curses
 import subprocess
 import os
 import os.path
+import sys
+
+class WrongNumOfArgs(Exception):
+    def __init__(self, num_of_args):
+        Exception.__init__(self, 'Wrong number of arguments (' + str(num_of_args) + ')')
 
 class Line:
     view = False # False: alias, True: command
@@ -36,7 +41,7 @@ class Comment(Line):
 
 class Quickcmd:
 
-    def __init__(self, stdscr):
+    def __init__(self, stdscr=None):
         self.config_path = ''
         self.view = 0
         self.selection = -1
@@ -47,8 +52,10 @@ class Quickcmd:
         self.first_letters = []
 
         self.setup_config()
-        self.setup_curses()
         self.read_file()
+
+    def gui(self):
+        self.setup_curses()
         self.display()
         self.wait_for_user()
 
@@ -191,15 +198,32 @@ class Quickcmd:
             self.stdscr.attroff(curses.A_BOLD)
 
 command = ''
-def main(stdscr):
+def gui(stdscr):
     qc = Quickcmd(stdscr)
+    qc.gui()
     global command
     command = qc.command
 
-if __name__ == "__main__":    
+if __name__ == "__main__":
+
     try:
-        curses.wrapper(main)
-        subprocess.call(command, shell=True)
+        num_of_args = len(sys.argv)-1
+
+        if num_of_args == 0:
+            curses.wrapper(gui)
+            subprocess.call(command, shell=True)
+
+        elif num_of_args == 1:
+            pass
+
+        else:
+            raise WrongNumOfArgs(num_of_args)
+
     except KeyboardInterrupt: # CTRL+C
         pass
+
+    except Exception, e:
+        print 'ERROR: ' + str(e)
+        exit(1)
+
 
