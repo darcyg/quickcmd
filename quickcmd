@@ -44,6 +44,7 @@ class Quickcmd:
         self.stdscr = stdscr
         self.command = ''
         self.selectables = []
+        self.first_letters = []
 
         self.setup_config()
         self.setup_curses()
@@ -117,13 +118,22 @@ class Quickcmd:
             elif k == ' ': # SPACE
                 Line.view = not Line.view
                 self.display()
-            elif k == 'h':
-                pass
             elif k == 'kUP5': # CTRL+UP_ARROW
                 pass
             elif k == 'kDN5': # CTRL+DOWN_ARROW
                 pass
+            elif k in [chr(x) for x in range(ord('a'), ord('z')+1)]: # a-z
+                i = (self.selectables.index(self.selection) + 1) % len(self.selectables)
+                first_letters = self.first_letters[i:] + self.first_letters[:i]
 
+                try:
+                    f = (first_letters.index(k) + i) % len(first_letters)
+                except ValueError: # letter not found
+                    f = -1
+
+                if f >= 0:
+                    self.selection = self.selectables[f]
+                    self.display()
 
     def read_file(self):
         self.items = []
@@ -150,6 +160,7 @@ class Quickcmd:
 
         self.selectables = [i for (i, item) in enumerate(self.items) if item.selectable]
         self.groups = [x for x,y in zip(self.selectables, [-2] + self.selectables[:-1]) if x-y>1]
+        self.first_letters = [self.items[i].alias[0].lower() for i in self.selectables]
 
         if len(self.selectables):
             self.selection = self.selectables[0]
