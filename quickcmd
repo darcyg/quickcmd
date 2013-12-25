@@ -5,7 +5,34 @@ import curses
 import subprocess
 import os
 from os.path import expanduser
-home = expanduser("~")
+
+class Line:
+    view = False # False: alias, True: command
+    selectable = False
+    bold = False
+
+class Empty(Line):
+    def __str__(self):
+        return ''
+
+class Command(Line):
+    selectable = True
+
+    def __init__(self, alias, cmd):
+        self.alias = alias
+        self.cmd = cmd
+
+    def __str__(self):
+        return [self.alias, self.cmd][self.view]
+            
+class Comment(Line):
+    bold = True
+
+    def __init__(self, text):
+        self.text = text
+
+    def __str__(self):
+        return self.text
 
 class Quickcmd:
     PAGE_SIZE = 5
@@ -82,7 +109,7 @@ class Quickcmd:
             elif k == ' ': # SPACE
                 pass
             elif k == '\t': # TAB
-                self.view = (self.view + 1) % 2
+                Line.view = not Line.view
                 self.display()
             elif k == 'h':
                 pass
@@ -96,14 +123,26 @@ class Quickcmd:
 
     def read_file(self):
         self.items = []
-        f_commands = open(self.config_path, 'r')
-        for line in f_commands:
-            sep = line.find(' ')
-            alias = line[:sep].strip()
-            command = line[sep:].strip()
-            self.items.append((alias, command))
+        f_config = open(self.config_path, 'r')
+        for raw_line in f_config:
+            line = raw_line.strip()
+            if len(line):
+                if line[0] == '#':
+                    self.items.append(Comment(line[1:]))
+                else:
+                    sep = line.find(' ')
+                    if sep < 0:
+                        alias = line
+                        command = line
+                    else:
+                        alias = line[:sep].strip()
+                        command = line[sep:].strip()
 
-        f_commands.close()
+                    self.items.append(Command(alias, command))
+            else:
+                self.items.append(Empty())
+
+        f_config.close()
 
         if len(self.items):
             self.selection = 0
@@ -117,11 +156,15 @@ class Quickcmd:
         i = 0
         for item in self.items:
             if i == self.selection:
-                self.stdscr.attron(curses.A_STANDOUT);
-            else:
-                self.stdscr.attroff(curses.A_STANDOUT);
+                self.stdscr.attron(curses.A_STANDOUT)
 
-            self.stdscr.addstr(i, 0, item[self.view])
+            if item.bold:
+                self.stdscr.attron(curses.A_BOLD)
+            
+            self.stdscr.addstr(i, 0, str(item))
+            
+            self.stdscr.attroff(curses.A_STANDOUT)
+            self.stdscr.attroff(curses.A_BOLD)
 
             i += 1
 

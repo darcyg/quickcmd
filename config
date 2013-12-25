@@ -1,5 +1,11 @@
-alias1   ls -la
-#Comment
-Alii     cd /
+#Group1
+Alias1   Command1
+Alias2   Command2
 
-hej      sudo ls
+#Group2
+Alias3   Command3
+Alias4   Command4
+Alias5   Command5
+
+
+
