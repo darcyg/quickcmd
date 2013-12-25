@@ -42,12 +42,12 @@ class Comment(Line):
 
 class Quickcmd:
 
-    def __init__(self, stdscr=None):
+    def __init__(self):
         self.config_path = ''
         self.view = 0
         self.selection = -1
         self.items = []
-        self.stdscr = stdscr
+        self.stdscr = None
         self.command = ''
         self.selectables = []
         self.first_letters = []
@@ -56,9 +56,15 @@ class Quickcmd:
         self.read_file()
 
     def gui(self):
+        self.enable_curses()
         self.setup_curses()
         self.display()
-        self.wait_for_user()
+        try:
+            self.wait_for_user()
+        except KeyboardInterrupt: # CTRL+C
+            pass
+        finally:
+            self.disable_curses()
 
     def setup_config(self):
         self.config_path = os.path.expanduser('~' + os.path.sep + '.quickcmd')
@@ -146,6 +152,9 @@ class Quickcmd:
                     self.selection = self.selectables[f]
                     self.display()
 
+    def get_cmd(self):
+        return self.command
+
     def read_file(self):
         self.items = []
         self.selectables = []
@@ -208,22 +217,10 @@ class Quickcmd:
         self.command = selectable_items[i].cmd
 
     def list_aliases(self):
-        selectable_items = [item for item in self.items if item.selectable]
-        for item in selectable_items:
-            print item.alias
-
-command = ''
-def gui(stdscr):
-    qc = Quickcmd(stdscr)
-    qc.gui()
-    global command
-    command = qc.command
-
-def cui(alias):
-    qc = Quickcmd()
-    qc.execute(alias)
-    global command
-    command = qc.command
+        aliases = list(set([item.alias for item in self.items if item.selectable])) # set does unique()
+        aliases.sort()
+        for alias in aliases:
+            print alias
 
 if __name__ == "__main__":
 
@@ -232,22 +229,17 @@ if __name__ == "__main__":
     parser.add_argument('--list', '-l', action='store_true', help='an integer for the accumulator')
     args = parser.parse_args()
 
-    print args
-    exit(1)
-    
     try:
+        qc = Quickcmd()
         if args.list:
-            pass
+            qc.list_aliases()
         else:
             if args.alias == None:
-                curses.wrapper(gui)
+                qc.gui()
             else:
-                cui(args.alias)
+                qc.execute(args.alias)
 
-        subprocess.call(command, shell=True)
-
-    except KeyboardInterrupt: # CTRL+C
-        pass
+            subprocess.call(qc.get_cmd(), shell=True)
 
     except Exception, e:
         print 'ERROR: ' + str(e)
