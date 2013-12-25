@@ -4,21 +4,30 @@
 import curses
 import subprocess
 import os
+from os.path import expanduser
+home = expanduser("~")
 
 class Quickcmd:
     PAGE_SIZE = 5
 
     def __init__(self, stdscr):
+        self.config_path = ''
         self.view = 0
         self.selection = 0
         self.items = []
         self.stdscr = stdscr
         self.command = ''
 
+        self.setup_config()
         self.setup_curses()
         self.read_file()
         self.display()
         self.wait_for_user()
+
+    def setup_config(self):
+        self.config_path = os.path.expanduser('~' + os.path.sep + '.quickcmd')
+        if not os.path.isfile(self.config_path):
+            self.config_path = 'config'
 
     def disable_curses(self):
         self.stdscr.keypad(0)
@@ -35,6 +44,8 @@ class Quickcmd:
             curses.start_color()
         except:
             pass
+
+        self.setup_curses()
 
     def setup_curses(self):
         curses.curs_set(0)
@@ -84,8 +95,7 @@ class Quickcmd:
 
 
     def read_file(self):
-
-        f_commands = open('config', 'r')
+        f_commands = open(self.config_path, 'r')
         for line in f_commands:
             sep = line.find(' ')
             alias = line[:sep].strip()
