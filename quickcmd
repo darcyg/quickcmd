@@ -20,6 +20,22 @@ class Quickcmd:
         self.display()
         self.wait_for_user()
 
+    def disable_curses(self):
+        self.stdscr.keypad(0)
+        curses.echo()
+        curses.nocbreak()
+        curses.endwin()
+
+    def enable_curses(self):
+        self.stdscr = curses.initscr()
+        curses.noecho()
+        curses.cbreak()
+        self.stdscr.keypad(1)
+        try:
+            curses.start_color()
+        except:
+            pass
+
     def setup_curses(self):
         curses.curs_set(0)
 
@@ -47,7 +63,10 @@ class Quickcmd:
             elif k == 'KEY_RIGHT':
                 pass
             elif k == 'e':
+
+                self.disable_curses()
                 os.system('vi')
+                self.enable_curses()
                 self.display()
             elif k == ' ': # SPACE
                 pass
