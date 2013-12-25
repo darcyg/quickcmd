@@ -119,13 +119,13 @@ class Quickcmd:
 
             i += 1
 
-
 command = ''
 def main(stdscr):
     qc = Quickcmd(stdscr)
     global command
     command = qc.command
 
-curses.wrapper(main)
-subprocess.call(command, shell=True)
+if __name__ == "__main__":    
+    curses.wrapper(main)
+    subprocess.call(command, shell=True)
 
