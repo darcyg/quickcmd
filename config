@@ -1,11 +1,10 @@
-#Group1
-Alias1   Command1
-Flias2   Command2
+#Files
+ListDirectory     ls -la
+PrintAllFiles     cat * | less
 
-#Group2
-Glias3   Command3
-Wlias4   Command4
-Flias5   Command5
-
-
+#System
+Id                uname -a
+ListGroups        cat /etc/group | grep -Po '^[^:]*' | sort
+ListMacAddresses  sudo ifconfig | grep -Po 'HWaddr .*' | cut -c 8-
+CpusAndCores      cat /proc/cpuinfo | grep -P '(processor|cores).*'
 

@@ -4,7 +4,7 @@
 import curses
 import subprocess
 import os
-from os.path import expanduser
+import os.path
 
 class Line:
     view = False # False: alias, True: command
@@ -81,25 +81,28 @@ class Quickcmd:
     def wait_for_user(self):
 
         selection2group = lambda selection: ([selection-g>=0 for g in self.groups] + [False]).index(False)-1
-
+        
         while(True):
+
+            selected = self.selection >= 0
             k = self.stdscr.getkey()
-            if k == '\n': # RETURN
+
+            if selected and k == '\n': # RETURN
                 self.command = self.items[self.selection].cmd
                 break
-            elif k == 'KEY_UP':
+            elif selected and k == 'KEY_UP':
                 i = self.selectables.index(self.selection)
                 self.selection = self.selectables[max(i-1, 0)]
                 self.display()
-            elif k == 'KEY_DOWN':
+            elif selected and k == 'KEY_DOWN':
                 i = self.selectables.index(self.selection)
                 self.selection = self.selectables[min(i+1, len(self.selectables)-1)]
                 self.display()
-            elif k in ['KEY_PPAGE', 'KEY_SR']: # PAGE_UP of SHIFT+UP_ARROW
+            elif selected and k in ['KEY_PPAGE', 'KEY_SR']: # PAGE_UP of SHIFT+UP_ARROW
                 i = selection2group(self.selection)
                 self.selection = self.groups[max(i-1, 0)]
                 self.display()
-            elif k in ['KEY_NPAGE', 'KEY_SF']: # PAGE_DOWN of SHIFT+DOWN_ARROW
+            elif selected and k in ['KEY_NPAGE', 'KEY_SF']: # PAGE_DOWN of SHIFT+DOWN_ARROW
                 i = selection2group(self.selection)
                 self.selection = self.groups[min(i+1, len(self.groups)-1)]
                 self.display()
@@ -122,7 +125,7 @@ class Quickcmd:
                 pass
             elif k == 'kDN5': # CTRL+DOWN_ARROW
                 pass
-            elif k in [chr(x) for x in range(ord('a'), ord('z')+1)]: # a-z
+            elif selected and k in [chr(x) for x in range(ord('a'), ord('z')+1)]: # a-z
                 i = (self.selectables.index(self.selection) + 1) % len(self.selectables)
                 first_letters = self.first_letters[i:] + self.first_letters[:i]
 
@@ -137,35 +140,39 @@ class Quickcmd:
 
     def read_file(self):
         self.items = []
-        f_config = open(self.config_path, 'r')
-        for raw_line in f_config:
-            line = raw_line.strip()
-            if len(line):
-                if line[0] == '#':
-                    self.items.append(Comment(line[1:]))
-                else:
-                    sep = line.find(' ')
-                    if sep < 0:
-                        alias = line
-                        command = line
+        self.selectables = []
+        self.groups = []
+        self.first_letters = []
+        self.selection = -1
+
+        if os.path.isfile(self.config_path):
+            f_config = open(self.config_path, 'r')
+            for raw_line in f_config:
+                line = raw_line.strip()
+                if len(line):
+                    if line[0] == '#':
+                        self.items.append(Comment(line[1:]))
                     else:
-                        alias = line[:sep].strip()
-                        command = line[sep:].strip()
+                        sep = line.find(' ')
+                        if sep < 0:
+                            alias = line
+                            command = line
+                        else:
+                            alias = line[:sep].strip()
+                            command = line[sep:].strip()
 
-                    self.items.append(Command(alias, command))
-            else:
-                self.items.append(Empty())
+                        self.items.append(Command(alias, command))
+                else:
+                    self.items.append(Empty())
 
-        f_config.close()
+            f_config.close()
 
-        self.selectables = [i for (i, item) in enumerate(self.items) if item.selectable]
-        self.groups = [x for x,y in zip(self.selectables, [-2] + self.selectables[:-1]) if x-y>1]
-        self.first_letters = [self.items[i].alias[0].lower() for i in self.selectables]
+            self.selectables = [i for (i, item) in enumerate(self.items) if item.selectable]
+            self.groups = [x for x,y in zip(self.selectables, [-2] + self.selectables[:-1]) if x-y>1]
+            self.first_letters = [self.items[i].alias[0].lower() for i in self.selectables]
 
         if len(self.selectables):
             self.selection = self.selectables[0]
-        else:
-            self.selection = -1
 
     def display(self):
         self.stdscr.clear()
