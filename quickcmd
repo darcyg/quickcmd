@@ -207,6 +207,11 @@ class Quickcmd:
 
         self.command = selectable_items[i].cmd
 
+    def list_aliases(self):
+        selectable_items = [item for item in self.items if item.selectable]
+        for item in selectable_items:
+            print item.alias
+
 command = ''
 def gui(stdscr):
     qc = Quickcmd(stdscr)
@@ -224,13 +229,20 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('alias', nargs='?', help='an integer for the accumulator')
+    parser.add_argument('--list', '-l', action='store_true', help='an integer for the accumulator')
     args = parser.parse_args()
 
+    print args
+    exit(1)
+    
     try:
-        if args.alias == None:
-            curses.wrapper(gui)
+        if args.list:
+            pass
         else:
-            cui(args.alias)
+            if args.alias == None:
+                curses.wrapper(gui)
+            else:
+                cui(args.alias)
 
         subprocess.call(command, shell=True)
 
