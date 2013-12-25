@@ -224,9 +224,15 @@ class Quickcmd:
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description='Process some integers.')
-    parser.add_argument('alias', nargs='?', help='an integer for the accumulator')
-    parser.add_argument('--list', '-l', action='store_true', help='an integer for the accumulator')
+    description = \
+    """Gives quick access to the commands defined in advance.
+    Each command can have own alias. Set of commands and aliases is defined
+    in .quickcmd file in your home directory.
+    """
+
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument('alias', nargs='?', help='Exexute command specyfied by alias')
+    parser.add_argument('--list', '-l', action='store_true', help='List available aliases')
     args = parser.parse_args()
 
     try:
