@@ -35,7 +35,6 @@ class Comment(Line):
         return self.text
 
 class Quickcmd:
-    PAGE_SIZE = 5
 
     def __init__(self, stdscr):
         self.config_path = ''
@@ -44,6 +43,7 @@ class Quickcmd:
         self.items = []
         self.stdscr = stdscr
         self.command = ''
+        self.selectables = []
 
         self.setup_config()
         self.setup_curses()
@@ -79,22 +79,28 @@ class Quickcmd:
 
     def wait_for_user(self):
 
+        selection2group = lambda selection: ([selection-g>=0 for g in self.groups] + [False]).index(False)-1
+
         while(True):
             k = self.stdscr.getkey()
             if k == '\n': # RETURN
-                self.command = self.items[self.selection][1]
+                self.command = self.items[self.selection].cmd
                 break
             elif k == 'KEY_UP':
-                self.selection = max(self.selection-1, 0)
+                i = self.selectables.index(self.selection)
+                self.selection = self.selectables[max(i-1, 0)]
                 self.display()
             elif k == 'KEY_DOWN':
-                self.selection = min(self.selection+1, len(self.items)-1)
+                i = self.selectables.index(self.selection)
+                self.selection = self.selectables[min(i+1, len(self.selectables)-1)]
                 self.display()
-            elif k == 'KEY_PPAGE': # PAGE UP
-                self.selection = max(self.selection-self.PAGE_SIZE, 0)
+            elif k in ['KEY_PPAGE', 'KEY_SR']: # PAGE_UP of SHIFT + UP_ARROW
+                i = selection2group(self.selection)
+                self.selection = self.groups[max(i-1, 0)]
                 self.display()
-            elif k == 'KEY_NPAGE': # PAGE DOWN
-                self.selection = min(self.selection+self.PAGE_SIZE, len(self.items)-1)
+            elif k in ['KEY_NPAGE', 'KEY_SF']: # PAGE_DOWN of SHIFT + DOWN_ARROW
+                i = selection2group(self.selection)
+                self.selection = self.groups[min(i+1, len(self.groups)-1)]
                 self.display()
             elif k == 'KEY_LEFT':
                 pass
@@ -144,8 +150,11 @@ class Quickcmd:
 
         f_config.close()
 
-        if len(self.items):
-            self.selection = 0
+        self.selectables = [i for (i, item) in enumerate(self.items) if item.selectable]
+        self.groups = [x for x,y in zip(self.selectables, [-2] + self.selectables[:-1]) if x-y>1]
+
+        if len(self.selectables):
+            self.selection = self.selectables[0]
         else:
             self.selection = -1
 
@@ -153,8 +162,7 @@ class Quickcmd:
         self.stdscr.clear()
         self.stdscr.refresh()
 
-        i = 0
-        for item in self.items:
+        for (i, item) in enumerate(self.items):
             if i == self.selection:
                 self.stdscr.attron(curses.A_STANDOUT)
 
@@ -165,8 +173,6 @@ class Quickcmd:
             
             self.stdscr.attroff(curses.A_STANDOUT)
             self.stdscr.attroff(curses.A_BOLD)
-
-            i += 1
 
 command = ''
 def main(stdscr):
