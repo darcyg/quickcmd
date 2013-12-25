@@ -8,9 +8,9 @@ import os.path
 import sys
 import argparse
 
-class WrongNumOfArgs(Exception):
-    def __init__(self, num_of_args):
-        Exception.__init__(self, 'Wrong number of arguments (' + str(num_of_args) + ')')
+class AliasNotFound(Exception):
+    def __init__(self, alias):
+        Exception.__init__(self, 'Alias \'' + alias + '\' not found')
 
 class Line:
     view = False # False: alias, True: command
@@ -198,10 +198,25 @@ class Quickcmd:
             self.stdscr.attroff(curses.A_STANDOUT)
             self.stdscr.attroff(curses.A_BOLD)
 
+    def execute(self, alias):
+        try:
+            selectable_items = [item for item in self.items if item.selectable]
+            i = [item.alias for item in selectable_items].index(alias)
+        except ValueError, e:
+            raise AliasNotFound(alias)
+
+        self.command = selectable_items[i].cmd
+
 command = ''
 def gui(stdscr):
     qc = Quickcmd(stdscr)
     qc.gui()
+    global command
+    command = qc.command
+
+def cui(alias):
+    qc = Quickcmd()
+    qc.execute(alias)
     global command
     command = qc.command
 
@@ -214,9 +229,10 @@ if __name__ == "__main__":
     try:
         if args.alias == None:
             curses.wrapper(gui)
-            subprocess.call(command, shell=True)
         else:
-            pass
+            cui(args.alias)
+
+        subprocess.call(command, shell=True)
 
     except KeyboardInterrupt: # CTRL+C
         pass
