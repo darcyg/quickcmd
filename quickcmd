@@ -13,7 +13,7 @@ class Quickcmd:
     def __init__(self, stdscr):
         self.config_path = ''
         self.view = 0
-        self.selection = 0
+        self.selection = -1
         self.items = []
         self.stdscr = stdscr
         self.command = ''
@@ -74,10 +74,10 @@ class Quickcmd:
             elif k == 'KEY_RIGHT':
                 pass
             elif k == 'e':
-
                 self.disable_curses()
-                os.system('vi')
+                os.system('vi +' + str(self.selection+1) + ' ' + self.config_path)
                 self.enable_curses()
+                self.read_file()
                 self.display()
             elif k == ' ': # SPACE
                 pass
@@ -95,6 +95,7 @@ class Quickcmd:
 
 
     def read_file(self):
+        self.items = []
         f_commands = open(self.config_path, 'r')
         for line in f_commands:
             sep = line.find(' ')
@@ -103,6 +104,11 @@ class Quickcmd:
             self.items.append((alias, command))
 
         f_commands.close()
+
+        if len(self.items):
+            self.selection = 0
+        else:
+            self.selection = -1
 
     def display(self):
         self.stdscr.clear()

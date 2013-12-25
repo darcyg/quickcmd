@@ -1,3 +1,5 @@
 alias1   ls -la
-ali2     cd /
+#Comment
+Alii     cd /
+
 hej      sudo ls
