@@ -94,11 +94,11 @@ class Quickcmd:
                 i = self.selectables.index(self.selection)
                 self.selection = self.selectables[min(i+1, len(self.selectables)-1)]
                 self.display()
-            elif k in ['KEY_PPAGE', 'KEY_SR']: # PAGE_UP of SHIFT + UP_ARROW
+            elif k in ['KEY_PPAGE', 'KEY_SR']: # PAGE_UP of SHIFT+UP_ARROW
                 i = selection2group(self.selection)
                 self.selection = self.groups[max(i-1, 0)]
                 self.display()
-            elif k in ['KEY_NPAGE', 'KEY_SF']: # PAGE_DOWN of SHIFT + DOWN_ARROW
+            elif k in ['KEY_NPAGE', 'KEY_SF']: # PAGE_DOWN of SHIFT+DOWN_ARROW
                 i = selection2group(self.selection)
                 self.selection = self.groups[min(i+1, len(self.groups)-1)]
                 self.display()
@@ -106,24 +106,22 @@ class Quickcmd:
                 pass
             elif k == 'KEY_RIGHT':
                 pass
-            elif k == 'e':
+            elif k == 'KEY_BACKSPACE':
+                pass
+            elif k == '\t':
                 self.disable_curses()
                 os.system('vi +' + str(self.selection+1) + ' ' + self.config_path)
                 self.enable_curses()
                 self.read_file()
                 self.display()
             elif k == ' ': # SPACE
-                pass
-            elif k == '\t': # TAB
                 Line.view = not Line.view
                 self.display()
             elif k == 'h':
                 pass
-            elif k == 'q':
-                break
-            elif k == 'kUP5': # CTRL + UP_ARROW
+            elif k == 'kUP5': # CTRL+UP_ARROW
                 pass
-            elif k == 'kDN5': # CTRL + DOWN_ARROW
+            elif k == 'kDN5': # CTRL+DOWN_ARROW
                 pass
 
 
@@ -181,6 +179,9 @@ def main(stdscr):
     command = qc.command
 
 if __name__ == "__main__":    
-    curses.wrapper(main)
-    subprocess.call(command, shell=True)
+    try:
+        curses.wrapper(main)
+        subprocess.call(command, shell=True)
+    except KeyboardInterrupt: # CTRL+C
+        pass
 
