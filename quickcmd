@@ -3,6 +3,7 @@
 
 import curses
 import subprocess
+import os
 
 class Quickcmd:
     PAGE_SIZE = 5
@@ -12,8 +13,7 @@ class Quickcmd:
         self.selection = 0
         self.items = []
         self.stdscr = stdscr
-        self.cmd_stdout = '' # stdout and stderr
-        self.cmd_retval = 0
+        self.command = ''
 
         self.setup_curses()
         self.read_file()
@@ -28,13 +28,7 @@ class Quickcmd:
         while(True):
             k = self.stdscr.getkey()
             if k == '\n': # RETURN
-                try:
-                    self.cmd_retval = 0
-                    self.cmd_stdout = subprocess.check_output(self.items[self.selection][1], stderr=subprocess.STDOUT, shell=True)
-                except subprocess.CalledProcessError, e:
-                    self.cmd_retval = e.returncode
-                    self.cmd_stdout = e.output
-
+                self.command = self.items[self.selection][1]
                 break
             elif k == 'KEY_UP':
                 self.selection = max(self.selection-1, 0)
@@ -96,20 +90,13 @@ class Quickcmd:
 
             i += 1
 
-cmd_stdout = ''
-cmd_retval = 0
+
+command = ''
 def main(stdscr):
     qc = Quickcmd(stdscr)
-    global cmd_stdout
-    global cmd_retval
-    cmd_stdout = qc.cmd_stdout
-    cmd_retval = qc.cmd_retval
+    global command
+    command = qc.command
 
 curses.wrapper(main)
-
-if cmd_stdout:
-    print cmd_stdout, # don't print newline at the end
-
-exit(cmd_retval)
-
+subprocess.call(command, shell=True)
 
