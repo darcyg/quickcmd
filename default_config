@@ -1,0 +1,42 @@
+## This is configuration file of quickcmd
+##
+## Following rules apply here:
+## - Spaces at the beginning and end of each line are removed.
+## - Lines with ## (double hash) at the begining are ignered (non-displayable
+##   comments).
+## - Lines with # (single hash) at the begining are displayed in bold
+##   (displayable comments) displayable comments separate groups of commands.
+## - Empty lines before and after actual displayable content are ignored.
+## - Empty lines between displayable lines separate groups of commands and add
+##   a gap between them.
+## - Lines which are not described above define commands. They begin with an
+##   alias.
+## - Alias as an alphanumeric identifier. It's separated from the actual
+##   command with any number of spaces.
+## - Alias is optional.
+
+
+## Information for new users:
+#-----------------------------------------------------------------------------
+# quickcmd is an application which allows you to execute commands defined in
+# advance. For more help please type quickcmd --help in terminal, or select
+# QuickCmdHelp below.
+#
+# This screen shows only exemplary configuration of quickcmd. To define your
+# own configuration please press TAB, or edit ~/.quickcmd file.
+#-----------------------------------------------------------------------------
+
+
+#Help
+QuickCmdHelp      quickcmd --help
+
+#Files
+ListDirectory     ls -la
+PrintAllFiles     cat * | less
+
+#System
+Id                uname -a
+ListGroups        cat /etc/group | grep -Po '^[^:]*' | sort
+ListMacAddresses  sudo ifconfig | grep -Po 'HWaddr .*' | cut -c 8-
+CpusAndCores      cat /proc/cpuinfo | grep -P '(processor|cores).*'
+

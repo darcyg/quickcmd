@@ -194,25 +194,37 @@ class Quickcmd:
         self.first_letters = []
         self.selection = -1
 
+        displayable_content = False
         if os.path.isfile(self.config_path):
             f_config = open(self.config_path, 'r')
             for raw_line in f_config:
                 line = raw_line.strip()
-                if len(line):
+                if line:
                     if line[0] == '#':
-                        self.items.append(Comment(line[1:]))
+                        if len(line)>1 and line[1] == '#':
+                            # Non-displayable comment
+                            pass
+                        else:
+                            # Displayable comment
+                            displayable_content = True
+                            self.items.append(Comment(line[1:]))
                     else:
+                        displayable_content = True
                         sep = line.find(' ')
                         if sep < 0:
+                            # Alias is same as the command
                             alias = line
                             command = line
                         else:
+                            # New alias & command pair
                             alias = line[:sep].strip()
                             command = line[sep:].strip()
 
                         self.items.append(Command(alias, command))
                 else:
-                    self.items.append(Empty())
+                    # Empty line
+                    if displayable_content: # Ignore empty lines before actual content
+                        self.items.append(Empty())
 
             f_config.close()
 
@@ -265,7 +277,7 @@ if __name__ == "__main__":
 
     description = \
     """
-    Gives quick access to the commands defined in advance.
+    Gives quick access and allows to execute commands defined in advance.
     Each command can have own alias. Set of commands and aliases is defined
     in .quickcmd file in your home directory.
 
