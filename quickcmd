@@ -30,9 +30,10 @@ class Command(ConfigItem):
     """
     selectable = True
 
-    def __init__(self, alias, cmd):
+    def __init__(self, alias, cmd, line_number):
         self.alias = alias
         self.cmd = cmd
+        self.line_number = line_number # starting from 1
 
     def __str__(self):
         return [self.alias, self.cmd][self.view]
@@ -142,7 +143,7 @@ class Quickcmd:
             elif k == '\t': # TAB
                 # Opens config file in VI for editing
                 self.disable_curses()
-                os.system('vi +' + str(self.selection+1) + ' ' + self.config_path)
+                os.system('vi +' + str(self.items[self.selection].line_number) + ' ' + self.config_path)
                 self.enable_curses()
                 self.read_config()
                 self.update_gui()
@@ -197,7 +198,9 @@ class Quickcmd:
         displayable_content = False
         if os.path.isfile(self.config_path):
             f_config = open(self.config_path, 'r')
+            line_number = 0
             for raw_line in f_config:
+                line_number += 1
                 line = raw_line.strip()
                 if line:
                     if line[0] == '#':
@@ -220,7 +223,7 @@ class Quickcmd:
                             alias = line[:sep].strip()
                             command = line[sep:].strip()
 
-                        self.items.append(Command(alias, command))
+                        self.items.append(Command(alias, command, line_number))
                 else:
                     # Empty line
                     if displayable_content: # Ignore empty lines before actual content
