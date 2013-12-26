@@ -12,16 +12,22 @@ class AliasNotFound(Exception):
     def __init__(self, alias):
         Exception.__init__(self, 'Alias \'' + alias + '\' not found')
 
-class Line:
-    view = False # False: alias, True: command
-    selectable = False
-    bold = False
+class ConfigItem:
+    """Base class for the items which can be met in config file
+    """
+    view = False # defines current view; False: alias, True: command
+    selectable = False # says whether item is selectable in gui or not
+    bold = False # says whether item should be displayed in bold or not
 
-class Empty(Line):
+class Empty(ConfigItem):
+    """Represents empty line in the config file
+    """
     def __str__(self):
         return ''
 
-class Command(Line):
+class Command(ConfigItem):
+    """Represents alias & command in the config file
+    """
     selectable = True
 
     def __init__(self, alias, cmd):
@@ -31,7 +37,9 @@ class Command(Line):
     def __str__(self):
         return [self.alias, self.cmd][self.view]
             
-class Comment(Line):
+class Comment(ConfigItem):
+    """Represents displayable comment in the config file
+    """
     bold = True
 
     def __init__(self, text):
@@ -41,24 +49,26 @@ class Comment(Line):
         return self.text
 
 class Quickcmd:
-
+    """Engine, manages app data and gui
+    """
     def __init__(self):
-        self.config_path = ''
-        self.view = 0
-        self.selection = -1
-        self.items = []
-        self.stdscr = None
-        self.command = ''
-        self.selectables = []
-        self.first_letters = []
+        self.config_path = ''     # path to the config file
+        self.selection = -1       # currently selected item
+        self.items = []           # all items from config file
+        self.stdscr = None        # current curses screen
+        self.command = ''         # command which at the end should be spawn whith this application
+        self.selectables = []     # indices of the items whcih are selectable
+        self.first_letters = []   # first letter of each alias
 
-        self.setup_config()
-        self.read_file()
+        self.config_path = os.path.expanduser('~' + os.path.sep + '.quickcmd')
+        self.read_config()
 
-    def gui(self):
+    def display_gui(self):
+        """Displays curses based GUI
+        """
         self.enable_curses()
         self.setup_curses()
-        self.display()
+        self.update_gui()
         try:
             self.wait_for_user()
         except KeyboardInterrupt: # CTRL+C
@@ -66,18 +76,10 @@ class Quickcmd:
         finally:
             self.disable_curses()
 
-    def setup_config(self):
-        self.config_path = os.path.expanduser('~' + os.path.sep + '.quickcmd')
-        if not os.path.isfile(self.config_path):
-            self.config_path = 'config'
-
-    def disable_curses(self):
-        self.stdscr.keypad(0)
-        curses.echo()
-        curses.nocbreak()
-        curses.endwin()
-
     def enable_curses(self):
+        """Enables curses library to display GUI.
+           This code is based on curses.wrapper code
+        """
         self.stdscr = curses.initscr()
         curses.noecho()
         curses.cbreak()
@@ -89,11 +91,23 @@ class Quickcmd:
 
         self.setup_curses()
 
+    def disable_curses(self):
+        """Cleans up after curses, so returning to the console is save.
+           This code is based on curses.wrapper code
+        """
+        self.stdscr.keypad(0)
+        curses.echo()
+        curses.nocbreak()
+        curses.endwin()
+
     def setup_curses(self):
+        """Does application specyfic configuration of curses
+        """
         curses.curs_set(0)
 
     def wait_for_user(self):
-
+        """Interacts with the user when GUI is displayed
+        """
         selection2group = lambda selection: ([selection-g>=0 for g in self.groups] + [False]).index(False)-1
         
         while(True):
@@ -102,44 +116,58 @@ class Quickcmd:
             k = self.stdscr.getkey()
 
             if selected and k == '\n': # RETURN
+                # Spawns the app with the command selected by user
                 self.command = self.items[self.selection].cmd
                 break
-            elif selected and k == 'KEY_UP':
+            elif selected and k == 'KEY_UP': # ARROW_UP
+                # Moves selection up by one item
                 i = self.selectables.index(self.selection)
                 self.selection = self.selectables[max(i-1, 0)]
-                self.display()
-            elif selected and k == 'KEY_DOWN':
+                self.update_gui()
+            elif selected and k == 'KEY_DOWN': # ARROW_DOWN
+                # Moves selection down by one item
                 i = self.selectables.index(self.selection)
                 self.selection = self.selectables[min(i+1, len(self.selectables)-1)]
-                self.display()
-            elif selected and k in ['KEY_PPAGE', 'KEY_SR']: # PAGE_UP of SHIFT+UP_ARROW
+                self.update_gui()
+            elif selected and k in ['KEY_PPAGE', 'KEY_SR']: # PAGE_UP of SHIFT+ARROW_UP
+                # Moves selection up by one group
                 i = selection2group(self.selection)
                 self.selection = self.groups[max(i-1, 0)]
-                self.display()
-            elif selected and k in ['KEY_NPAGE', 'KEY_SF']: # PAGE_DOWN of SHIFT+DOWN_ARROW
+                self.update_gui()
+            elif selected and k in ['KEY_NPAGE', 'KEY_SF']: # PAGE_DOWN of SHIFT+ARROW_DOWN
+                # Moves selection down by one group
                 i = selection2group(self.selection)
                 self.selection = self.groups[min(i+1, len(self.groups)-1)]
-                self.display()
-            elif k == 'KEY_LEFT':
-                pass
-            elif k == 'KEY_RIGHT':
-                pass
-            elif k == 'KEY_BACKSPACE':
-                pass
-            elif k == '\t':
+                self.update_gui()
+            elif k == '\t': # TAB
+                # Opens config file in VI for editing
                 self.disable_curses()
                 os.system('vi +' + str(self.selection+1) + ' ' + self.config_path)
                 self.enable_curses()
-                self.read_file()
-                self.display()
+                self.read_config()
+                self.update_gui()
             elif k == ' ': # SPACE
-                Line.view = not Line.view
-                self.display()
+                # Switches between alias/command views
+                ConfigItem.view = not ConfigItem.view
+                self.update_gui()
+            elif k == 'KEY_LEFT':
+                # For future use
+                pass
+            elif k == 'KEY_RIGHT':
+                # For future use
+                pass
+            elif k == 'KEY_BACKSPACE':
+                # For future use
+                pass
             elif k == 'kUP5': # CTRL+UP_ARROW
+                # For future use
                 pass
             elif k == 'kDN5': # CTRL+DOWN_ARROW
+                # For future use
                 pass
             elif selected and k in [chr(x) for x in range(ord('a'), ord('z')+1)]: # a-z
+                # Proceeds to the next item the name of which begins with given letter
+
                 i = (self.selectables.index(self.selection) + 1) % len(self.selectables)
                 first_letters = self.first_letters[i:] + self.first_letters[:i]
 
@@ -150,12 +178,16 @@ class Quickcmd:
 
                 if f >= 0:
                     self.selection = self.selectables[f]
-                    self.display()
+                    self.update_gui()
 
     def get_cmd(self):
+        """Returns command which is to be executed
+        """
         return self.command
 
-    def read_file(self):
+    def read_config(self):
+        """Reads config file
+        """
         self.items = []
         self.selectables = []
         self.groups = []
@@ -191,23 +223,28 @@ class Quickcmd:
         if len(self.selectables):
             self.selection = self.selectables[0]
 
-    def display(self):
+    def update_gui(self):
+        """Updates GUI with displayable items form config file
+        """
         self.stdscr.clear()
-        self.stdscr.refresh()
 
         for (i, item) in enumerate(self.items):
             if i == self.selection:
-                self.stdscr.attron(curses.A_STANDOUT)
+                self.stdscr.attron(curses.A_STANDOUT) # Highlighting ON
 
             if item.bold:
-                self.stdscr.attron(curses.A_BOLD)
+                self.stdscr.attron(curses.A_BOLD)     # Bold ON
             
             self.stdscr.addstr(i, 0, str(item))
             
-            self.stdscr.attroff(curses.A_STANDOUT)
-            self.stdscr.attroff(curses.A_BOLD)
+            self.stdscr.attroff(curses.A_STANDOUT)    # Highlighting OFF
+            self.stdscr.attroff(curses.A_BOLD)        # Bold OFF
 
-    def execute(self, alias):
+        self.stdscr.refresh()
+
+    def find_cmd(self, alias):
+        """Searches for the command by it's alias
+        """
         try:
             selectable_items = [item for item in self.items if item.selectable]
             i = [item.alias for item in selectable_items].index(alias)
@@ -217,6 +254,8 @@ class Quickcmd:
         self.command = selectable_items[i].cmd
 
     def list_aliases(self):
+        """Prints all the aliases from the config file
+        """
         aliases = list(set([item.alias for item in self.items if item.selectable])) # set does unique()
         aliases.sort()
         for alias in aliases:
@@ -225,12 +264,26 @@ class Quickcmd:
 if __name__ == "__main__":
 
     description = \
-    """Gives quick access to the commands defined in advance.
+    """
+    Gives quick access to the commands defined in advance.
     Each command can have own alias. Set of commands and aliases is defined
     in .quickcmd file in your home directory.
+
+    Key bindings:
+    --------------
+    CTRL+C                        - close application
+    RETURN                        - close application and execute selected command
+    ARROW_UP                      - select previous command
+    ARROW_DOWN                    - select next command
+    PAGE_UP or SHIFT+ARROW_UP     - move selection to the previous group
+    PAGE_DOWN or SHIFT+ARROW_DOWN - move selection to the next group
+    TAB                           - edit configuration file
+    SPACE                         - switch view between aliases and commands
+    a-z                           - move selestion to the next command, alias of
+                                    witch begins with the given letter
     """
 
-    parser = argparse.ArgumentParser(description=description)
+    parser = argparse.ArgumentParser(description=description, formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('alias', nargs='?', help='Exexute command specyfied by alias')
     parser.add_argument('--list', '-l', action='store_true', help='List available aliases')
     args = parser.parse_args()
@@ -241,9 +294,9 @@ if __name__ == "__main__":
             qc.list_aliases()
         else:
             if args.alias == None:
-                qc.gui()
+                qc.display_gui()
             else:
-                qc.execute(args.alias)
+                qc.find_cmd(args.alias)
 
             subprocess.call(qc.get_cmd(), shell=True)
 
