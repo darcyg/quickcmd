@@ -178,22 +178,6 @@ class Quickcmd:
             elif k == 'kDN5': # CTRL+DOWN_ARROW
                 # For future use
                 pass
-            elif selected and k in [chr(x) for x in range(ord('a'), ord('z')+1)]: # a-z
-                # Proceeds to the next item the name of which begins with given letter
-
-                i = (self.selectables.index(self.selection) + 1) % len(self.selectables)
-                first_letters = self.first_letters[i:] + self.first_letters[:i]
-
-                try:
-                    f = (first_letters.index(k) + i) % len(first_letters)
-                except ValueError: # letter not found
-                    f = -1
-
-                if f >= 0:
-                    self.selection = self.selectables[f]
-                    self.update_gui()
-            else:
-                os.system('echo "' + k + '" > ~/dbg')
 
     def read_config(self):
         """Reads config file
