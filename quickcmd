@@ -9,6 +9,8 @@ import sys
 import argparse
 
 class AliasNotFound(Exception):
+    """Exception raised when alias/command is not found
+    """
     def __init__(self, alias):
         Exception.__init__(self, 'Alias \'' + alias + '\' not found')
 
@@ -54,8 +56,8 @@ class QuickCmd(object): # must inherit from object to support properties
     """
     def __init__(self):
         self.config_path = ''     # path to the config file
-        self._selection_prev = -1 # previously selected item
-        self._selection = -1      # currently selected item
+        self._selection_prev = -1 # previously selected item (see properties)
+        self._selection = -1      # currently selected item (see properties)
         self.items = []           # all items from config file
         self.stdscr = None        # current curses screen
         self.command = ''         # command which at the end should be spawn whith this application
@@ -125,10 +127,6 @@ class QuickCmd(object): # must inherit from object to support properties
         """Does application specyfic configuration of curses
         """
         curses.curs_set(0)
-
-    def set_selection(self, selection):
-        self.selection_prev = self.selection
-        self.selection = selection
 
     def wait_for_user(self):
         """Interacts with the user when GUI is displayed
@@ -255,6 +253,8 @@ class QuickCmd(object): # must inherit from object to support properties
             self.selection = self.selectables[0]
 
     def print_item(self, item, position, selected):
+        """Prints single line of the GUI
+        """
         if position >= 0:
             if selected:
                 self.stdscr.attron(curses.A_STANDOUT) # Highlighting ON
@@ -268,7 +268,7 @@ class QuickCmd(object): # must inherit from object to support properties
             self.stdscr.attroff(curses.A_BOLD)        # Bold OFF
 
     def print_gui(self):
-        """Updates GUI with displayable items form config file
+        """Prints whole GUI
         """
         self.stdscr.clear()
 
@@ -278,7 +278,7 @@ class QuickCmd(object): # must inherit from object to support properties
         self.stdscr.refresh()
 
     def print_gui_diff(self):
-        """Updates GUI with displayable items form config file
+        """Prints only these items appearance of which changed
         """
 
         i = self.selection_prev
@@ -311,6 +311,8 @@ class QuickCmd(object): # must inherit from object to support properties
             print alias
 
     def finalize(self):
+        """Takes proper action on the specified command
+        """
         if self.command and self.action:
             try:
                 self.action(self.command)
@@ -318,12 +320,21 @@ class QuickCmd(object): # must inherit from object to support properties
                 pass
 
     def action_execute(self, cmd):
+        """Executes command in underlaying shell
+        """
         subprocess.call(qc.command, shell=True)
 
     def action_print(self, cmd):
+        """Prints command to stdout
+        """
         print cmd
 
     def action_type(self, cmd):
+        """Types command to underlaying shell, which allows for editing it
+           Currently this works only for X. You can try evdev.uinput if you
+           want to reimplement this method in a way so it is working in 
+           terminal without X.
+        """
         text = cmd.replace('"', '\\"')
         ppid = os.getpid()
         cpid = os.fork()
@@ -363,8 +374,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=description, formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('alias', nargs='?', help='Exexute command specyfied by alias')
     parser.add_argument('-l', '--list', action='store_true', help='List available aliases')
-    parser.add_argument('-p', '--stdout', action='store_true', help='???')
-    parser.add_argument('-t', '--type', action='store_true', help='???')
+    parser.add_argument('-p', '--stdout', action='store_true', help='Print command instead of executing')
+    parser.add_argument('-t', '--type', action='store_true', help='Edit command before execution')
     args = parser.parse_args()
 
     #try:
