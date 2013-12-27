@@ -60,6 +60,7 @@ class Quickcmd:
         self.command = ''         # command which at the end should be spawn whith this application
         self.selectables = []     # indices of the items whcih are selectable
         self.first_letters = []   # first letter of each alias
+        self.action = 0           # action to be taken at the exit
 
         self.config_path = os.path.expanduser('~' + os.path.sep + '.quickcmd')
         self.read_config()
@@ -119,6 +120,7 @@ class Quickcmd:
             if selected and k == '\n': # RETURN
                 # Spawns the app with the command selected by user
                 self.command = self.items[self.selection].cmd
+                self.action = 1
                 break
             elif selected and k == 'KEY_UP': # ARROW_UP
                 # Moves selection up by one item
@@ -151,6 +153,14 @@ class Quickcmd:
                 # Switches between alias/command views
                 ConfigItem.view = not ConfigItem.view
                 self.update_gui()
+            elif k == 'p':
+                self.command = self.items[self.selection].cmd
+                self.action = 2
+                break
+            elif k == 't':
+                self.command = self.items[self.selection].cmd
+                self.action = 3
+                break
             elif k == 'KEY_LEFT':
                 # For future use
                 pass
@@ -164,6 +174,9 @@ class Quickcmd:
                 # For future use
                 pass
             elif k == 'kDN5': # CTRL+DOWN_ARROW
+                # For future use
+                pass
+            elif k == '\x1B': # ESC
                 # For future use
                 pass
             elif selected and k in [chr(x) for x in range(ord('a'), ord('z')+1)]: # a-z
@@ -180,11 +193,8 @@ class Quickcmd:
                 if f >= 0:
                     self.selection = self.selectables[f]
                     self.update_gui()
-
-    def get_cmd(self):
-        """Returns command which is to be executed
-        """
-        return self.command
+            else:
+                os.system('echo "' + k + '" > ~/dbg')
 
     def read_config(self):
         """Reads config file
@@ -276,6 +286,35 @@ class Quickcmd:
         for alias in aliases:
             print alias
 
+    def finalize(self):
+        if self.command:
+            action = [self.action_ignore, self.action_execute, self.action_print, self.action_type][self.action]
+            action(self.command)
+
+    def action_ignore(self, cmd):
+        pass
+
+    def action_execute(self, cmd):
+        subprocess.call(qc.command, shell=True)
+
+    def action_print(self, cmd):
+        print cmd
+
+    def action_type(self, cmd):
+        text = cmd.replace('"', '\\"')
+        ppid = os.getpid()
+        cpid = os.fork()
+
+        if cpid == 0: # Child            
+            try:
+                while(True): # Wait for parent to finish and release command prompt
+                    os.kill(ppid, 0)
+            except OSError, e:
+                pass
+
+            os.system('echo str "' + text + '" | xte')
+
+
 if __name__ == "__main__":
 
     description = \
@@ -313,7 +352,7 @@ if __name__ == "__main__":
             else:
                 qc.find_cmd(args.alias)
 
-            subprocess.call(qc.get_cmd(), shell=True)
+            qc.finalize()
 
     except Exception, e:
         print 'ERROR: ' + str(e)
