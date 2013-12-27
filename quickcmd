@@ -117,17 +117,27 @@ class Quickcmd:
             selected = self.selection >= 0
             k = self.stdscr.getkey()
 
-            if selected and k == '\n': # RETURN
+            if k == 'q':
+                break
+            elif selected and k == '\n': # RETURN
                 # Spawns the app with the command selected by user
                 self.command = self.items[self.selection].cmd
                 self.action = 1
                 break
-            elif selected and k == 'KEY_UP': # ARROW_UP
+            elif k == 'p':
+                self.command = self.items[self.selection].cmd
+                self.action = 2
+                break
+            elif k == 't':
+                self.command = self.items[self.selection].cmd
+                self.action = 3
+                break
+            elif selected and k in ['KEY_UP', 'k']: # ARROW_UP or K
                 # Moves selection up by one item
                 i = self.selectables.index(self.selection)
                 self.selection = self.selectables[max(i-1, 0)]
                 self.update_gui()
-            elif selected and k == 'KEY_DOWN': # ARROW_DOWN
+            elif selected and k in ['KEY_DOWN', 'j']: # ARROW_DOWN or J
                 # Moves selection down by one item
                 i = self.selectables.index(self.selection)
                 self.selection = self.selectables[min(i+1, len(self.selectables)-1)]
@@ -142,25 +152,17 @@ class Quickcmd:
                 i = selection2group(self.selection)
                 self.selection = self.groups[min(i+1, len(self.groups)-1)]
                 self.update_gui()
-            elif k == '\t': # TAB
+            elif k == 'e':
                 # Opens config file in VI for editing
                 self.disable_curses()
                 os.system('vi +' + str(self.items[self.selection].line_number) + ' ' + self.config_path)
                 self.enable_curses()
                 self.read_config()
                 self.update_gui()
-            elif k == ' ': # SPACE
+            elif k == '\t': # TAB
                 # Switches between alias/command views
                 ConfigItem.view = not ConfigItem.view
                 self.update_gui()
-            elif k == 'p':
-                self.command = self.items[self.selection].cmd
-                self.action = 2
-                break
-            elif k == 't':
-                self.command = self.items[self.selection].cmd
-                self.action = 3
-                break
             elif k == 'KEY_LEFT':
                 # For future use
                 pass
@@ -174,9 +176,6 @@ class Quickcmd:
                 # For future use
                 pass
             elif k == 'kDN5': # CTRL+DOWN_ARROW
-                # For future use
-                pass
-            elif k == '\x1B': # ESC
                 # For future use
                 pass
             elif selected and k in [chr(x) for x in range(ord('a'), ord('z')+1)]: # a-z
