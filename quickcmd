@@ -49,31 +49,50 @@ class Comment(ConfigItem):
     def __str__(self):
         return self.text
 
-class Quickcmd:
+class QuickCmd(object): # must inherit from object to support properties
     """Engine, manages app data and gui
     """
     def __init__(self):
         self.config_path = ''     # path to the config file
-        self.selection = -1       # currently selected item
+        self._selection_prev = -1 # previously selected item
+        self._selection = -1      # currently selected item
         self.items = []           # all items from config file
         self.stdscr = None        # current curses screen
         self.command = ''         # command which at the end should be spawn whith this application
         self.selectables = []     # indices of the items whcih are selectable
         self.first_letters = []   # first letter of each alias
-        self.action = 0           # action to be taken at the exit
+        self.action = None        # action to be taken at the exit
 
         self.config_path = os.path.expanduser('~' + os.path.sep + '.quickcmd')
         self.read_config()
+
+    @property
+    def selection_prev(self):
+        return self._selection_prev
+
+    @property
+    def selection(self):
+        return self._selection
+        
+    @selection_prev.setter
+    def selection_prev(self, val):
+        self._selection_prev = val
+
+    @selection.setter
+    def selection(self, val):
+        self._selection_prev = self._selection
+        self._selection = val
+
 
     def display_gui(self):
         """Displays curses based GUI
         """
         self.enable_curses()
         self.setup_curses()
-        self.update_gui()
+        self.print_gui()
         try:
             self.wait_for_user()
-        except KeyboardInterrupt: # CTRL+C
+        except KeyboardInterrupt: # CTRL+C when GUI is visible
             pass
         finally:
             self.disable_curses()
@@ -107,6 +126,10 @@ class Quickcmd:
         """
         curses.curs_set(0)
 
+    def set_selection(self, selection):
+        self.selection_prev = self.selection
+        self.selection = selection
+
     def wait_for_user(self):
         """Interacts with the user when GUI is displayed
         """
@@ -122,47 +145,47 @@ class Quickcmd:
             elif selected and k == '\n': # RETURN
                 # Spawns the app with the command selected by user
                 self.command = self.items[self.selection].cmd
-                self.action = 1
+                self.action = self.action_execute
                 break
             elif k == 'p':
                 self.command = self.items[self.selection].cmd
-                self.action = 2
+                self.action = self.action_print
                 break
             elif k == 't':
                 self.command = self.items[self.selection].cmd
-                self.action = 3
+                self.action = self.action_type
                 break
             elif selected and k in ['KEY_UP', 'k']: # ARROW_UP or K
                 # Moves selection up by one item
                 i = self.selectables.index(self.selection)
                 self.selection = self.selectables[max(i-1, 0)]
-                self.update_gui()
+                self.print_gui_diff()
             elif selected and k in ['KEY_DOWN', 'j']: # ARROW_DOWN or J
                 # Moves selection down by one item
                 i = self.selectables.index(self.selection)
                 self.selection = self.selectables[min(i+1, len(self.selectables)-1)]
-                self.update_gui()
+                self.print_gui_diff()
             elif selected and k in ['KEY_PPAGE', 'KEY_SR']: # PAGE_UP of SHIFT+ARROW_UP
                 # Moves selection up by one group
                 i = selection2group(self.selection)
                 self.selection = self.groups[max(i-1, 0)]
-                self.update_gui()
+                self.print_gui_diff()
             elif selected and k in ['KEY_NPAGE', 'KEY_SF']: # PAGE_DOWN of SHIFT+ARROW_DOWN
                 # Moves selection down by one group
                 i = selection2group(self.selection)
                 self.selection = self.groups[min(i+1, len(self.groups)-1)]
-                self.update_gui()
+                self.print_gui_diff()
             elif k == 'e':
                 # Opens config file in VI for editing
                 self.disable_curses()
                 os.system('vi +' + str(self.items[self.selection].line_number) + ' ' + self.config_path)
                 self.enable_curses()
                 self.read_config()
-                self.update_gui()
+                self.print_gui()
             elif k == '\t': # TAB
                 # Switches between alias/command views
                 ConfigItem.view = not ConfigItem.view
-                self.update_gui()
+                self.print_gui()
             elif k == 'KEY_LEFT':
                 # For future use
                 pass
@@ -231,22 +254,40 @@ class Quickcmd:
         if len(self.selectables):
             self.selection = self.selectables[0]
 
-    def update_gui(self):
-        """Updates GUI with displayable items form config file
-        """
-        self.stdscr.clear()
-
-        for (i, item) in enumerate(self.items):
-            if i == self.selection:
+    def print_item(self, item, position, selected):
+        if position >= 0:
+            if selected:
                 self.stdscr.attron(curses.A_STANDOUT) # Highlighting ON
 
             if item.bold:
                 self.stdscr.attron(curses.A_BOLD)     # Bold ON
             
-            self.stdscr.addstr(i, 0, str(item))
+            self.stdscr.addstr(position, 0, str(item))
             
             self.stdscr.attroff(curses.A_STANDOUT)    # Highlighting OFF
             self.stdscr.attroff(curses.A_BOLD)        # Bold OFF
+
+    def print_gui(self):
+        """Updates GUI with displayable items form config file
+        """
+        self.stdscr.clear()
+
+        for (i, item) in enumerate(self.items):
+            self.print_item(item, i, self.selection==i)
+
+        self.stdscr.refresh()
+
+    def print_gui_diff(self):
+        """Updates GUI with displayable items form config file
+        """
+
+        i = self.selection_prev
+        item = self.items[i]
+        self.print_item(item, i, False)
+
+        i = self.selection
+        item = self.items[i]
+        self.print_item(item, i, True)
 
         self.stdscr.refresh()
 
@@ -270,12 +311,11 @@ class Quickcmd:
             print alias
 
     def finalize(self):
-        if self.command:
-            action = [self.action_ignore, self.action_execute, self.action_print, self.action_type][self.action]
-            action(self.command)
-
-    def action_ignore(self, cmd):
-        pass
+        if self.command and self.action:
+            try:
+                self.action(self.command)
+            except KeyboardInterrupt: # CTRL+C when command is executed (ex. sudo asking for password)
+                pass
 
     def action_execute(self, cmd):
         subprocess.call(qc.command, shell=True)
@@ -322,23 +362,29 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description=description, formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('alias', nargs='?', help='Exexute command specyfied by alias')
-    parser.add_argument('--list', '-l', action='store_true', help='List available aliases')
+    parser.add_argument('-l', '--list', action='store_true', help='List available aliases')
+    parser.add_argument('-p', '--stdout', action='store_true', help='???')
+    parser.add_argument('-t', '--type', action='store_true', help='???')
     args = parser.parse_args()
 
-    try:
-        qc = Quickcmd()
-        if args.list:
-            qc.list_aliases()
+    #try:
+    qc = QuickCmd()
+    if args.list:
+        qc.list_aliases()
+    else:
+        if args.alias == None:
+            qc.display_gui()
         else:
-            if args.alias == None:
-                qc.display_gui()
-            else:
-                qc.find_cmd(args.alias)
+            qc.find_cmd(args.alias)
+            v = [args.stdout, args.type]
+            a = ([sum(v)==0] + v).index(True)
+            qc.action = [qc.action_execute, qc.action_print, qc.action_type][a]
 
-            qc.finalize()
+    qc.finalize()
 
-    except Exception, e:
-        print 'ERROR: ' + str(e)
-        exit(1)
+
+    #except Exception, e:
+    #    print 'ERROR: ' + str(e)
+    #    exit(1)
 
 
