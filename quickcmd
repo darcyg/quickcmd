@@ -7,6 +7,7 @@ import os
 import os.path
 import sys
 import argparse
+from copy import copy
 
 class AliasNotFound(Exception):
     """Exception raised when alias/command is not found
@@ -37,7 +38,7 @@ class WrongItemNumber(Exception):
 class Layout:
     """Data necessary to display one screen
     """
-    def __init__(self, items, selectables, groups):
+    def __init__(self, items=[], selectables=[], groups=[]):
         self.items = items
         self.selectables = selectables
         self.groups = groups
@@ -94,7 +95,8 @@ class QuickCmd(object): # must inherit from object to support properties
         self.display_offset = 0   # vertical offset
         self.refresh_gui = False  # forces printing whole GUI, not only items which changed
         self.layouts = []         # sets of (items, selectables, groups) vectors
-        self.active_layout = 0    # currently active layout
+        self._active_layout = 0   # index of active layout
+        self.search_text = None   # None means not out of searching mode
 
         self.config_path = os.path.expanduser('~' + os.path.sep + '.quickcmd')
         self.read_config()
@@ -102,19 +104,19 @@ class QuickCmd(object): # must inherit from object to support properties
     @property
     def selection_prev(self):
         return self._selection_prev
-
-    @property
-    def selection(self):
-        return self._selection
         
     @selection_prev.setter
     def selection_prev(self, val):
         self._selection_prev = val
 
+    @property
+    def selection(self):
+        return self._selection
+
     @selection.setter
-    def selection(self, val):
+    def selection(self, selection):
         self._selection_prev = self._selection
-        self._selection = val
+        self._selection = selection
 
         display_offset = self.display_offset
 
@@ -124,6 +126,17 @@ class QuickCmd(object): # must inherit from object to support properties
             self.display_offset = self._selection - self.display_height + 1
 
         self.refresh_gui = (display_offset != self.display_offset)
+
+    @property
+    def active_layout(self):
+        if self.search_text == None:
+            return self._active_layout
+        else:
+            return len(self.layouts)-1 # dynamic layout
+
+    @active_layout.setter
+    def active_layout(self, active_layout):
+        self._active_layout = active_layout
 
     @property
     def items(self):
@@ -140,6 +153,10 @@ class QuickCmd(object): # must inherit from object to support properties
     def update_gui_size(self):
         """Resets GUI size and updates dependencies
         """
+        if len(self.selectables):
+            self.selection = self.selectables[0]
+        else:
+            self.selection = -1
         (self.display_height, self.display_width) = self.stdscr.getmaxyx()
         self.display_offset = 0         # reset offset
         self.selection = self.selection # recalculate offset
@@ -187,6 +204,22 @@ class QuickCmd(object): # must inherit from object to support properties
         """
         curses.curs_set(0)
 
+    def filter_items(self, from_scratch=False):
+        if from_scratch:
+            layout = copy(self.layouts[self._active_layout]) # clone original layout
+            layout.items = [item for item in layout.items if item.selectable]
+            self.layouts[self.active_layout] = layout
+        
+        items = self.items
+        for item in items:
+            item.underline_from = item.alias.find(self.search_text)
+            item.underline_len = len(self.search_text)
+
+        items = filter(lambda i: i.underline_from>=0, items)
+        selectables = range(len(items))
+        groups = [0]
+        self.layouts[self.active_layout] = Layout(items, selectables, groups)
+
     def wait_for_user(self):
         """Interacts with the user when GUI is displayed
         """
@@ -200,23 +233,44 @@ class QuickCmd(object): # must inherit from object to support properties
             #      termios, pygame, curses are not good enough
             #      probably keyboard driver can be accessed directly (ioctl?) as an alternative
 
-            if k == 'q':
+            alphanum_range  = range(ord('a'), ord('z')+1)
+            alphanum_range += range(ord('0'), ord('9')+1)
+            alphanum = [chr(x) for x in alphanum_range] + [' ', '_', '-', '.']
+
+            if (self.search_text != None) and k in alphanum: # this must be the first case
+                if self.items: #searching in empty list doesn't make sense
+                    self.search_text += k
+                    self.filter_items()
+                    self.print_gui()
+            elif k == '/':
+                self.search_text = ''
+                self.filter_items(True)
+                self.print_gui()
+            elif k == 'KEY_BACKSPACE':
+                if self.search_text:
+                    self.search_text = self.search_text[:-1]
+                    self.filter_items(True)
+                else:
+                    self.search_text = None
+                self.print_gui()
+            elif k == 'q':
                 break
-            elif selected and k == '\n': # RETURN
+            elif selected and k == ' ': # SPACE
                 # Spawns the app with the command selected by user
                 self.command = self.items[self.selection].cmd
                 self.action = self.action_execute
                 break
-            elif k in ['p', ' ']: # P or SPACE
+            elif k == 'p':
                 self.command = self.items[self.selection].cmd
                 self.action = self.action_print
                 break
-            elif k == 'KEY_BACKSPACE': # using letter key is not reccomended, it interferes with xte
+            elif k == '\n': # RETURN, using letter key is not reccomended, it interferes with xte
                 self.command = self.items[self.selection].cmd
                 self.action = self.action_type
                 break
             elif k == 'v':
-                self.active_layout = (self.active_layout + 1) % len(self.layouts)
+                self.active_layout = (self.active_layout + 1) % (len(self.layouts)-1) # last layout is dynamic
+                self.update_gui_size()
                 self.print_gui()
             elif selected and k in ['KEY_UP', 'k']: # ARROW_UP or K
                 # Moves selection up by one item
@@ -316,7 +370,7 @@ class QuickCmd(object): # must inherit from object to support properties
 
             # Layout1: Without comments
             items1 = [item for item in items0 if item.selectable]
-            selectables1 = range(len(items0))
+            selectables1 = range(len(items1))
             groups1 = [0]
             layout1 = Layout(items1, selectables1, groups1)
 
@@ -326,13 +380,10 @@ class QuickCmd(object): # must inherit from object to support properties
             groups2 = groups1
             layout2 = Layout(items2, selectables2, groups2)
 
-            self.layouts = [layout0, layout1, layout2]
+            # Dynamic Layout: Used for searching/filtering
+            layout_dyn = Layout()
 
-        if len(self.selectables):
-            self.selection = self.selectables[0]
-        else:
-            self.selection = -1
-        
+            self.layouts = [layout0, layout1, layout2, layout_dyn]
 
     def print_item(self, item, position, selected):
         """Prints single line of the GUI
