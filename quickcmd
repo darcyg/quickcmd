@@ -23,6 +23,14 @@ class PrintingError(Exception):
                            ', text: \'' + text +
                            ', msg: ' + error.message + '\']')
 
+class Layout:
+    """Data necessary to display one screen
+    """
+    def __init__(self, items, selectables, groups):
+        self.items = items
+        self.selectables = selectables
+        self.groups = groups
+
 class ConfigItem:
     """Base class for the items which can be met in config file
     """
@@ -67,16 +75,15 @@ class QuickCmd(object): # must inherit from object to support properties
         self.config_path = ''     # path to the config file
         self._selection_prev = -1 # previously selected item (see properties)
         self._selection = -1      # currently selected item (see properties)
-        self.items = []           # all items from config file
         self.stdscr = None        # current curses screen
         self.command = ''         # command which at the end should be spawn whith this application
-        self.selectables = []     # indices of the items whcih are selectable
-        self.first_letters = []   # first letter of each alias
         self.action = None        # action to be taken at the exit
         self.display_width  = 0   # terminal width
         self.display_height = 0   # terminal height
         self.display_offset = 0   # vertical offset
         self.refresh_gui = False  # forces printing whole GUI, not only items which changed
+        self.layouts = []         # sets of (items, selectables, groups) vectors
+        self.active_layout = 0    # currently active layout
 
         self.config_path = os.path.expanduser('~' + os.path.sep + '.quickcmd')
         self.read_config()
@@ -106,6 +113,18 @@ class QuickCmd(object): # must inherit from object to support properties
             self.display_offset = self._selection - self.display_height + 1
 
         self.refresh_gui = (display_offset != self.display_offset)
+
+    @property
+    def items(self):
+        return self.layouts[self.active_layout].items
+
+    @property
+    def selectables(self):
+        return self.layouts[self.active_layout].selectables
+
+    @property
+    def groups(self):
+        return self.layouts[self.active_layout].groups
 
     def update_gui_size(self):
         """Resets GUI size and updates dependencies
@@ -182,6 +201,9 @@ class QuickCmd(object): # must inherit from object to support properties
                 self.command = self.items[self.selection].cmd
                 self.action = self.action_type
                 break
+            elif k == 'v':
+                self.active_layout = (self.active_layout + 1) % len(self.layouts)
+                self.print_gui()
             elif selected and k in ['KEY_UP', 'k']: # ARROW_UP or K
                 # Moves selection up by one item
                 i = self.selectables.index(self.selection)
@@ -232,11 +254,9 @@ class QuickCmd(object): # must inherit from object to support properties
     def read_config(self):
         """Reads config file
         """
-        self.items = []
-        self.selectables = []
-        self.groups = []
-        self.first_letters = []
-        self.selection = -1
+        items = []
+        selectables = []
+        groups = []
 
         displayable_content = False
         if os.path.isfile(self.config_path):
@@ -253,7 +273,7 @@ class QuickCmd(object): # must inherit from object to support properties
                         else:
                             # Displayable comment
                             displayable_content = True
-                            self.items.append(Comment(line[1:]))
+                            items.append(Comment(line[1:]))
                     else:
                         displayable_content = True
                         sep = line.find(' ')
@@ -266,20 +286,42 @@ class QuickCmd(object): # must inherit from object to support properties
                             alias = line[:sep].strip()
                             command = line[sep:].strip()
 
-                        self.items.append(Command(alias, command, line_number))
+                        items.append(Command(alias, command, line_number))
                 else:
                     # Empty line
                     if displayable_content: # Ignore empty lines before actual content
-                        self.items.append(Empty())
+                        items.append(Empty())
 
             f_config.close()
 
-            self.selectables = [i for (i, item) in enumerate(self.items) if item.selectable]
-            self.groups = [x for x,y in zip(self.selectables, [-2] + self.selectables[:-1]) if x-y>1]
-            self.first_letters = [self.items[i].alias[0].lower() for i in self.selectables]
+            selectables = [i for (i, item) in enumerate(items) if item.selectable]
+            groups = [x for x,y in zip(selectables, [-2] + selectables[:-1]) if x-y>1]
+
+            # Layout0: All visible comments
+            items0 = items
+            selectables0 = selectables
+            groups0 = groups
+            layout0 = Layout(items0, selectables0, groups0)
+
+            # Layout1: Without comments
+            items1 = [item for item in items0 if item.selectable]
+            selectables1 = range(len(items0))
+            groups1 = [0]
+            layout1 = Layout(items1, selectables1, groups1)
+
+            # Layout2: Sorted Layout1
+            items2 = sorted(items1, key=lambda item: item.alias)
+            selectables2 = selectables1
+            groups2 = groups1
+            layout2 = Layout(items2, selectables2, groups2)
+
+            self.layouts = [layout0, layout1, layout2]
 
         if len(self.selectables):
             self.selection = self.selectables[0]
+        else:
+            self.selection = -1
+        
 
     def print_item(self, item, position, selected):
         """Prints single line of the GUI
