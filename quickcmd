@@ -117,12 +117,11 @@ class QuickCmd(object): # must inherit from object to support properties
     def display_gui(self):
         """Displays curses based GUI
         """
-        self.enable_curses()
-        self.setup_curses()
-        self.update_gui_size()
-        self.print_gui()
-
         try:
+            self.enable_curses()
+            self.setup_curses()
+            self.update_gui_size()
+            self.print_gui()
             self.wait_for_user()
         except KeyboardInterrupt: # CTRL+C when GUI is visible
             pass
@@ -368,7 +367,7 @@ class QuickCmd(object): # must inherit from object to support properties
     def action_execute(self, cmd):
         """Executes command in underlaying shell
         """
-        subprocess.call(qc.command, shell=True)
+        subprocess.call(self.command, shell=True)
 
     def action_print(self, cmd):
         """Prints command to stdout
@@ -394,6 +393,29 @@ class QuickCmd(object): # must inherit from object to support properties
 
             os.system('echo str "' + text + '" | xte')
 
+def main(args):
+
+    try:
+        qc = QuickCmd()
+        if args.list:
+            qc.list_aliases()
+        else:
+            if args.alias == None:
+                qc.display_gui()
+            else:
+                qc.find_cmd(args.alias)
+                v = [args.stdout, args.type]
+                a = ([sum(v)==0] + v).index(True)
+                qc.action = [qc.action_execute, qc.action_print, qc.action_type][a]
+
+            qc.finalize()
+
+    except Exception, e:
+        if args.debug:
+            raise
+        else:
+            print 'ERROR: ' + str(e)
+            exit(1)
 
 if __name__ == "__main__":
 
@@ -422,26 +444,10 @@ if __name__ == "__main__":
     parser.add_argument('-l', '--list', action='store_true', help='List available aliases')
     parser.add_argument('-p', '--stdout', action='store_true', help='Print command instead of executing')
     parser.add_argument('-t', '--type', action='store_true', help='Edit command before execution')
+    parser.add_argument('--debug', action='store_true', help='Prints whole call stack when exception occures')
     args = parser.parse_args()
 
-    #try:
-    qc = QuickCmd()
-    if args.list:
-        qc.list_aliases()
-    else:
-        if args.alias == None:
-            qc.display_gui()
-        else:
-            qc.find_cmd(args.alias)
-            v = [args.stdout, args.type]
-            a = ([sum(v)==0] + v).index(True)
-            qc.action = [qc.action_execute, qc.action_print, qc.action_type][a]
+    main(args)
 
-    qc.finalize()
-
-
-    #except Exception, e:
-    #    print 'ERROR: ' + str(e)
-    #    exit(1)
 
 
