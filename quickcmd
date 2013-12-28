@@ -7,13 +7,21 @@ import os
 import os.path
 import sys
 import argparse
-import signal
 
 class AliasNotFound(Exception):
     """Exception raised when alias/command is not found
     """
     def __init__(self, alias):
         Exception.__init__(self, 'Alias \'' + alias + '\' not found')
+
+class PrintingError(Exception):
+    """Exception raised when curses cannot print text
+    """
+    def __init__(self, error, y, x, text):
+        Exception.__init__(self, 'Printing error [y: ' +
+                           str(y) + ', x: ' + str(x) +
+                           ', text: \'' + text +
+                           ', msg: ' + error.message + '\']')
 
 class ConfigItem:
     """Base class for the items which can be met in config file
@@ -65,6 +73,10 @@ class QuickCmd(object): # must inherit from object to support properties
         self.selectables = []     # indices of the items whcih are selectable
         self.first_letters = []   # first letter of each alias
         self.action = None        # action to be taken at the exit
+        self.display_width  = 0   # terminal width
+        self.display_height = 0   # terminal height
+        self.display_offset = 0   # vertical offset
+        self.refresh_gui = False  # forces printing whole GUI, not only items which changed
 
         self.config_path = os.path.expanduser('~' + os.path.sep + '.quickcmd')
         self.read_config()
@@ -86,11 +98,28 @@ class QuickCmd(object): # must inherit from object to support properties
         self._selection_prev = self._selection
         self._selection = val
 
+        display_offset = self.display_offset
+
+        if self._selection < self.display_offset:
+            self.display_offset = self._selection
+        elif self._selection >= self.display_height + self.display_offset:
+            self.display_offset = self._selection - self.display_height + 1
+
+        self.refresh_gui = (display_offset != self.display_offset)
+
+    def update_gui_size(self):
+        """Resets GUI size and updates dependencies
+        """
+        (self.display_height, self.display_width) = self.stdscr.getmaxyx()
+        self.display_offset = 0         # reset offset
+        self.selection = self.selection # recalculate offset
+
     def display_gui(self):
         """Displays curses based GUI
         """
         self.enable_curses()
         self.setup_curses()
+        self.update_gui_size()
         self.print_gui()
 
         try:
@@ -256,21 +285,26 @@ class QuickCmd(object): # must inherit from object to support properties
     def print_item(self, item, position, selected):
         """Prints single line of the GUI
         """
-        if position >= 0:
+
+        y = position - self.display_offset
+        x = 0
+
+        if (y >= 0) and (y < self.display_height):
             if selected:
                 self.stdscr.attron(curses.A_STANDOUT) # Highlighting ON
 
             if item.bold:
                 self.stdscr.attron(curses.A_BOLD)     # Bold ON
             
-            (h, w) = self.stdscr.getmaxyx()
             text = str(item)
+            w = self.display_width-1 # self.stdscr.addstr sometimes raise an error when full width used
             if len(text) > w:
-                text = text[0:max(w-3,0)] + '...'
+                text = (text[0:max(w-3,0)] + '...')[0:w]
 
-            text = text[0:w]
-
-            self.stdscr.addstr(position, 0, text)
+            try:
+                self.stdscr.addstr(y, x, text)
+            except curses.error, e:
+                raise PrintingError(e, y, x, text)
             
             self.stdscr.attroff(curses.A_STANDOUT)    # Highlighting OFF
             self.stdscr.attroff(curses.A_BOLD)        # Bold OFF
@@ -284,20 +318,24 @@ class QuickCmd(object): # must inherit from object to support properties
             self.print_item(item, i, self.selection==i)
 
         self.stdscr.refresh()
+        self.refresh_gui = False
 
     def print_gui_diff(self):
-        """Prints only these items appearance of which changed
+        """Prints only these items, appearance of which changed
         """
 
-        i = self.selection_prev
-        item = self.items[i]
-        self.print_item(item, i, False)
+        if self.refresh_gui:
+            self.print_gui()
+        else:
+            i = self.selection_prev
+            item = self.items[i]
+            self.print_item(item, i, False)
 
-        i = self.selection
-        item = self.items[i]
-        self.print_item(item, i, True)
+            i = self.selection
+            item = self.items[i]
+            self.print_item(item, i, True)
 
-        self.stdscr.refresh()
+            self.stdscr.refresh()
 
     def find_cmd(self, alias):
         """Searches for the command by it's alias
