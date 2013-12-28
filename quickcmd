@@ -196,6 +196,9 @@ class QuickCmd(object): # must inherit from object to support properties
 
             selected = self.selection >= 0
             k = self.stdscr.getkey()
+            #TODO: Shortcuts like SHIFT+RETURN are not supported, 
+            #      termios, pygame, curses are not good enough
+            #      probably keyboard driver can be accessed directly (ioctl?) as an alternative
 
             if k == 'q':
                 break
@@ -204,11 +207,11 @@ class QuickCmd(object): # must inherit from object to support properties
                 self.command = self.items[self.selection].cmd
                 self.action = self.action_execute
                 break
-            elif k == 'p':
+            elif k in ['p', ' ']: # P or SPACE
                 self.command = self.items[self.selection].cmd
                 self.action = self.action_print
                 break
-            elif k == 't':
+            elif k == 'KEY_BACKSPACE': # using letter key is not reccomended, it interferes with xte
                 self.command = self.items[self.selection].cmd
                 self.action = self.action_type
                 break
@@ -250,9 +253,6 @@ class QuickCmd(object): # must inherit from object to support properties
                 # For future use
                 pass
             elif k == 'KEY_RIGHT':
-                # For future use
-                pass
-            elif k == 'KEY_BACKSPACE':
                 # For future use
                 pass
             elif k == 'kUP5': # CTRL+UP_ARROW
@@ -447,6 +447,10 @@ class QuickCmd(object): # must inherit from object to support properties
         if cpid == 0: # Child            
             try:
                 while(True): # Wait for parent to finish and release command prompt
+                             # TODO: This should also wait for the user to release
+                             #       all the keys of the keyboard
+                             # TODO: This feature doesn't work in pure terminal without X
+                             #       uinput can be used instead
                     os.kill(ppid, 0)
             except OSError, e:
                 pass
