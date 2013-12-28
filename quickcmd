@@ -7,6 +7,7 @@ import os
 import os.path
 import sys
 import argparse
+import signal
 
 class AliasNotFound(Exception):
     """Exception raised when alias/command is not found
@@ -85,13 +86,13 @@ class QuickCmd(object): # must inherit from object to support properties
         self._selection_prev = self._selection
         self._selection = val
 
-
     def display_gui(self):
         """Displays curses based GUI
         """
         self.enable_curses()
         self.setup_curses()
         self.print_gui()
+
         try:
             self.wait_for_user()
         except KeyboardInterrupt: # CTRL+C when GUI is visible
@@ -262,7 +263,12 @@ class QuickCmd(object): # must inherit from object to support properties
             if item.bold:
                 self.stdscr.attron(curses.A_BOLD)     # Bold ON
             
-            self.stdscr.addstr(position, 0, str(item))
+            (h, w) = self.stdscr.getmaxyx()
+            text = str(item)
+            if len(text) > w:
+                text = text[0:w-3] + '...'
+
+            self.stdscr.addstr(position, 0, text)
             
             self.stdscr.attroff(curses.A_STANDOUT)    # Highlighting OFF
             self.stdscr.attroff(curses.A_BOLD)        # Bold OFF
