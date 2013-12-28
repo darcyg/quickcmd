@@ -266,7 +266,9 @@ class QuickCmd(object): # must inherit from object to support properties
             (h, w) = self.stdscr.getmaxyx()
             text = str(item)
             if len(text) > w:
-                text = text[0:w-3] + '...'
+                text = text[0:max(w-3,0)] + '...'
+
+            text = text[0:w]
 
             self.stdscr.addstr(position, 0, text)
             
