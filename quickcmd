@@ -64,7 +64,9 @@ class Command(ConfigItem):
     def __init__(self, alias, cmd, line_number):
         self.alias = alias
         self.cmd = cmd
-        self.line_number = line_number # starting from 1
+        self.line_number = line_number # starting from 1, line number in config file
+#        self.underline_from = -1 # this is added only to search results
+#        self.underline_len = 0   # this is added only to search results
 
     def __str__(self):
         return [self.alias, self.cmd][self.view]
@@ -87,6 +89,7 @@ class QuickCmd(object): # must inherit from object to support properties
         self.config_path = ''     # path to the config file
         self._selection_prev = -1 # previously selected item (see properties)
         self._selection = -1      # currently selected item (see properties)
+        self.selected_line = 0    # currently selected line (see properties)
         self.stdscr = None        # current curses screen
         self.command = ''         # command which at the end should be spawn whith this application
         self.action = None        # action to be taken at the exit
@@ -97,6 +100,8 @@ class QuickCmd(object): # must inherit from object to support properties
         self.layouts = []         # sets of (items, selectables, groups) vectors
         self._active_layout = 0   # index of active layout
         self.search_text = None   # None means not out of searching mode
+
+        self.print_item = self.print_item_std  # printing function
 
         self.config_path = os.path.expanduser('~' + os.path.sep + '.quickcmd')
         self.read_config()
@@ -120,10 +125,13 @@ class QuickCmd(object): # must inherit from object to support properties
 
         display_offset = self.display_offset
 
-        if self._selection < self.display_offset:
-            self.display_offset = self._selection
-        elif self._selection >= self.display_height + self.display_offset:
-            self.display_offset = self._selection - self.display_height + 1
+        if self._selection >= 0:
+            if self._selection < self.display_offset:
+                self.display_offset = self._selection
+            elif self._selection >= self.display_height + self.display_offset:
+                self.display_offset = self._selection - self.display_height + 1
+        else:
+            self.display_offset = 0
 
         self.refresh_gui = (display_offset != self.display_offset)
 
@@ -153,10 +161,7 @@ class QuickCmd(object): # must inherit from object to support properties
     def update_gui_size(self):
         """Resets GUI size and updates dependencies
         """
-        if len(self.selectables):
-            self.selection = self.selectables[0]
-        else:
-            self.selection = -1
+        self.select_by_line()
         (self.display_height, self.display_width) = self.stdscr.getmaxyx()
         self.display_offset = 0         # reset offset
         self.selection = self.selection # recalculate offset
@@ -205,12 +210,16 @@ class QuickCmd(object): # must inherit from object to support properties
         curses.curs_set(0)
 
     def filter_items(self, from_scratch=False):
+        """Filters items according using filter text
+           when from_scratch == False, it re-uses results from previous filtering
+        """
         if from_scratch:
             layout = copy(self.layouts[self._active_layout]) # clone original layout
             layout.items = [item for item in layout.items if item.selectable]
             self.layouts[self.active_layout] = layout
         
         items = self.items
+        
         for item in items:
             item.underline_from = item.alias.find(self.search_text)
             item.underline_len = len(self.search_text)
@@ -219,6 +228,31 @@ class QuickCmd(object): # must inherit from object to support properties
         selectables = range(len(items))
         groups = [0]
         self.layouts[self.active_layout] = Layout(items, selectables, groups)
+
+    def select_by_line(self, line_number=0):
+        """Selects item corresponding to the line number in config file
+           By default first selectable item is selected
+        """
+        if len(self.selectables):
+            try:
+                self.selection = [item.line_number if item.selectable else -1 for item in self.items].index(line_number)
+            except ValueError:
+                self.selection = self.selectables[0]
+        else:
+            self.selection = -1
+
+    def save_selection_by_line(self):
+        """Saves line number, the item of which is selected
+        """
+        if self.selection >=0:
+            self.selected_line = self.items[self.selection].line_number
+        else:
+            self.selected_line = 0
+
+    def restore_selection_by_line(self):
+        """Selects item, line number of which was saved by save_selection_by_line
+        """
+        self.select_by_line(self.selected_line)
 
     def wait_for_user(self):
         """Interacts with the user when GUI is displayed
@@ -239,19 +273,25 @@ class QuickCmd(object): # must inherit from object to support properties
 
             if (self.search_text != None) and k in alphanum: # this must be the first case
                 if self.items: #searching in empty list doesn't make sense
+                    self.save_selection_by_line()
                     self.search_text += k
                     self.filter_items()
+                    self.restore_selection_by_line()
                     self.print_gui()
             elif k == '/':
+                self.save_selection_by_line()
                 self.search_text = ''
                 self.filter_items(True)
+                self.restore_selection_by_line()
                 self.print_gui()
             elif k == 'KEY_BACKSPACE':
+                self.save_selection_by_line()
                 if self.search_text:
                     self.search_text = self.search_text[:-1]
                     self.filter_items(True)
                 else:
                     self.search_text = None
+                self.restore_selection_by_line()
                 self.print_gui()
             elif k == 'q':
                 break
@@ -269,8 +309,10 @@ class QuickCmd(object): # must inherit from object to support properties
                 self.action = self.action_type
                 break
             elif k == 'v':
+                self.save_selection_by_line()
                 self.active_layout = (self.active_layout + 1) % (len(self.layouts)-1) # last layout is dynamic
                 self.update_gui_size()
+                self.restore_selection_by_line()
                 self.print_gui()
             elif selected and k in ['KEY_UP', 'k']: # ARROW_UP or K
                 # Moves selection up by one item
@@ -383,38 +425,83 @@ class QuickCmd(object): # must inherit from object to support properties
             # Dynamic Layout: Used for searching/filtering
             layout_dyn = Layout()
 
-            self.layouts = [layout0, layout1, layout2, layout_dyn]
+            self.layouts = [layout0, layout1, layout2, layout_dyn]        
 
-    def print_item(self, item, position, selected):
-        """Prints single line of the GUI
+    def print_item_std(self, item, position, selected):
+        """Prints single line of the GUI, standard style
         """
 
         y = position - self.display_offset
         x = 0
 
         if (y >= 0) and (y < self.display_height):
-            if selected:
-                self.stdscr.attron(curses.A_STANDOUT) # Highlighting ON
 
-            if item.bold:
-                self.stdscr.attron(curses.A_BOLD)     # Bold ON
-            
             text = str(item)
             w = self.display_width-1 # self.stdscr.addstr sometimes raise an error when full width used
             if len(text) > w:
                 text = (text[0:max(w-3,0)] + '...')[0:w]
 
-            try:
+            if selected:
+                self.stdscr.attron(curses.A_STANDOUT) # Highlighting ON
+
+            if item.bold:
+                self.stdscr.attron(curses.A_BOLD)     # Bold ON            
+
+            try:            
                 self.stdscr.addstr(y, x, text)
             except curses.error, e:
                 raise PrintingError(e, y, x, text)
-            
+
             self.stdscr.attroff(curses.A_STANDOUT)    # Highlighting OFF
             self.stdscr.attroff(curses.A_BOLD)        # Bold OFF
+
+    def print_item_udr(self, item, position, selected):
+        """Prints single line of the GUI, style for search results
+        """
+
+        y = position - self.display_offset
+        x = 0
+
+        if (y >= 0) and (y < self.display_height):
+            text = str(item)
+            w = self.display_width-1 # self.stdscr.addstr sometimes raise an error when full width used
+            if len(text) > w:
+                text = (text[0:max(w-3,0)] + '...')[0:w]
+
+            if selected:
+                self.stdscr.attron(curses.A_STANDOUT) # Highlighting ON
+
+            underline_from = item.underline_from
+            underline_to = item.underline_from + item.underline_len
+
+            x0 = x
+            x1 = x + underline_from
+            x2 = x + underline_to
+
+            text0 = text[:underline_from]
+            text1 = text[underline_from:underline_to]
+            text2 = text[underline_to:]
+
+            try:
+                self.stdscr.addstr(y, x0, text0)
+                self.stdscr.attron(curses.A_BOLD)     # Bold ON            
+                self.stdscr.addstr(y, x1, text1)
+                self.stdscr.attroff(curses.A_BOLD)        # Bold OFF
+                self.stdscr.addstr(y, x2, text2)
+            except curses.error, e:
+                raise PrintingError(e, y, x, text)
+
+            self.stdscr.attroff(curses.A_STANDOUT)    # Highlighting OFF
 
     def print_gui(self):
         """Prints whole GUI
         """
+
+        if (self.search_text != None) and (not ConfigItem.view):
+            self.print_item = self.print_item_udr
+        else:
+            self.print_item = self.print_item_std
+
         self.stdscr.clear()
 
         for (i, item) in enumerate(self.items):
