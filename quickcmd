@@ -280,8 +280,13 @@ class QuickCmd(object): # must inherit from object to support properties
                     self.print_gui()
             elif k == '/':
                 self.save_selection_by_line()
-                self.search_text = ''
-                self.filter_items(True)
+
+                if self.search_text == None:
+                    self.search_text = ''
+                    self.filter_items(True)
+                else:
+                    self.search_text = None
+
                 self.restore_selection_by_line()
                 self.print_gui()
             elif k == 'KEY_BACKSPACE':
@@ -295,7 +300,7 @@ class QuickCmd(object): # must inherit from object to support properties
                 self.print_gui()
             elif k == 'q':
                 break
-            elif selected and k == ' ': # SPACE
+            elif selected and k == '\n': # RETURN
                 # Spawns the app with the command selected by user
                 self.command = self.items[self.selection].cmd
                 self.action = self.action_execute
@@ -304,9 +309,9 @@ class QuickCmd(object): # must inherit from object to support properties
                 self.command = self.items[self.selection].cmd
                 self.action = self.action_print
                 break
-            elif k == '\n': # RETURN, using letter key is not reccomended, it interferes with xte
+            elif k in ['KEY_IC', 'i']: # INSERT, using letter key is not reccomended, it interferes with xte
                 self.command = self.items[self.selection].cmd
-                self.action = self.action_type
+                self.action = self.action_insert
                 break
             elif k == 'v':
                 self.save_selection_by_line()
@@ -324,12 +329,12 @@ class QuickCmd(object): # must inherit from object to support properties
                 i = self.selectables.index(self.selection)
                 self.selection = self.selectables[min(i+1, len(self.selectables)-1)]
                 self.print_gui_diff()
-            elif selected and k in ['KEY_PPAGE', 'KEY_SR']: # PAGE_UP of SHIFT+ARROW_UP
+            elif selected and k in ['KEY_PPAGE', 'KEY_SR', 'K']: # PAGE_UP or SHIFT+ARROW_UP or SHIFT+K
                 # Moves selection up by one group
                 i = selection2group(self.selection)
                 self.selection = self.groups[max(i-1, 0)]
                 self.print_gui_diff()
-            elif selected and k in ['KEY_NPAGE', 'KEY_SF']: # PAGE_DOWN of SHIFT+ARROW_DOWN
+            elif selected and k in ['KEY_NPAGE', 'KEY_SF', 'J']: # PAGE_DOWN or SHIFT+ARROW_DOWN or SHIFT+J
                 # Moves selection down by one group
                 i = selection2group(self.selection)
                 self.selection = self.groups[min(i+1, len(self.groups)-1)]
@@ -345,6 +350,12 @@ class QuickCmd(object): # must inherit from object to support properties
                 # Switches between alias/command views
                 ConfigItem.view = not ConfigItem.view
                 self.print_gui()
+            elif k == ' ': # SPACE
+                # For future use
+                pass
+            elif k == 'KEY_DC': # DELETE
+                # For future use
+                pass
             elif k == 'KEY_LEFT':
                 # For future use
                 pass
@@ -572,7 +583,7 @@ class QuickCmd(object): # must inherit from object to support properties
         """
         print cmd
 
-    def action_type(self, cmd):
+    def action_insert(self, cmd):
         """Types command to underlaying shell, which allows for editing it
            Currently this works only for X. You can try evdev.uinput if you
            want to reimplement this method in a way so it is working in 
@@ -593,7 +604,10 @@ class QuickCmd(object): # must inherit from object to support properties
             except OSError, e:
                 pass
 
-            os.system('echo str "' + text + '" | xte')
+            os.system('echo -n "' + text + '" | ttype')
+
+# TODO: Another action which would export the command as a 'bash alias', using '$ alias name=command'
+#       Probably not possible, http://stackoverflow.com/questions/19946321/create-unix-alias-using-a-python3-script
 
 def main(args):
 
@@ -606,9 +620,9 @@ def main(args):
                 qc.display_gui()
             else:
                 qc.find_cmd(args.alias, args.number)
-                v = [args.stdout, args.type]
+                v = [args.stdout, args.insert]
                 a = ([sum(v)==0] + v).index(True)
-                qc.action = [qc.action_execute, qc.action_print, qc.action_type][a]
+                qc.action = [qc.action_execute, qc.action_print, qc.action_insert][a]
 
             qc.finalize()
 
@@ -645,7 +659,7 @@ if __name__ == "__main__":
     parser.add_argument('alias', nargs='?', help='Exexute command specyfied by alias')
     parser.add_argument('-l', '--list', action='store_true', help='List available aliases')
     parser.add_argument('-p', '--stdout', action='store_true', help='Print command instead of executing')
-    parser.add_argument('-t', '--type', action='store_true', help='Edit command before execution')
+    parser.add_argument('-i', '--insert', action='store_true', help='Edit command before execution')
     parser.add_argument('-n', '--number', metavar='N', type=int, default=1, help='Item number (applicable when more than one item have the same alias)')
     parser.add_argument('--debug', action='store_true', help='Prints whole call stack when exception occures')
     args = parser.parse_args()
