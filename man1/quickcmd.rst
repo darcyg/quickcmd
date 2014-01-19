@@ -1,81 +1,76 @@
-=========
- rst2man
-=========
+==========
+ quickcmd
+==========
 
----------------------------------------------
-generate unix manpages from reStructured text
----------------------------------------------
+------------------------------------------------------
+Gives quick access to the commands defined in advance.
+------------------------------------------------------
 
-:Author: grubert@users.sourceforge.net
-:Date:   2006-10-23
+:Author: Grzegorz Krason <contact@krason.biz>
+:Date:   2014-01-19
 :Copyright: public domain
-:Version: 0.1
+:Version: 1.0.0
 :Manual section: 1
-:Manual group: text processing
-
-.. TODO: authors and author with name <email>
+:Website: http://krason.biz/#quickcmd
 
 SYNOPSIS
 ========
 
-  rst2man.py inputfile outputfile
+  quickcmd [-h] [-l] [-p] [-i] [-n N] [-c P] [--debug] [-V] [alias]
 
 DESCRIPTION
 ===========
 
-rst2man transforms a reStructured text document into a unix man page.
-
-In theory any valid reStructured text document should be processable,
-in reality this is
-
-* a goal, that is not met yet
-* a goal that might never be met, because only few constructs are
-  used in man pages *and* because the common text file does not adhere
-  to man page requirements. 
-  
-  For example a unix man page belongs into a numbered section, 1 is 
-  user commands, 8 contains administrator commands and the headlines
-  of all manpages are collected into a database, queryable with the
-  programm ``apropos``, therefore the headline should contain a short
-  text describing into which group this command belongs.
-
-  These informations are collected from title, subtitle and the
-  docinfo, see this document as an example.
+Gives quick access to the commands defined in advance. Each command can 
+have own alias. Set of commands and aliases is defined in .quickcmd file
+in your home directory.
 
 OPTIONS
 =======
 
---config=<file>         Read configuration settings from <file>, if it exists.
---version, -V           Show this program's version number and exit.
---help, -h              Show this help message and exit.
+positional arguments:
+  alias             Exexute command specyfied by alias
 
-And a lot more standard docutils options.
+optional arguments:
+  -h, --help        show this help message and exit
+  -l, --list        List available aliases
+  -p, --stdout      Print command instead of executing
+  -i, --insert      Edit command before execution
+  -n N, --number N  Item number (applicable when more than one item
+                    have the same alias)
+  -c P, --config P  Config file; default is ~/.quickcmd
+  --debug           Print whole call stack when exception occures
+  -V, --version     Show version number and exit
 
-PROBLEMS
-========
+KEY BINDINGS
+============
 
-1. linux man page howto advises to use the man macro package,
-   UCB uses the newer doc macros.
+::
 
-SEE ALSO
-========
+               ARROW_UP         - select previous command
+  alternative: k
+               ARROW_DOWN       - select next command
+  alternative: j
 
-* `docutils <http://docutils.sourceforge.net>`__
-* `linux man page howto <http://tldp.org/HOWTO/Man-Page/>`__
-* ``man man`` and ``man 7 man``
+               PAGE_UP          - move selection to the previous group
+  alternative: SHIFT+ARROW_UP
+  alternative: SHIFT+k
 
-BUGS
-====
+               CTRL+C           - close application
+  alternative: q
 
-* Format options are included as they are required, only the simplest
-  options are supported, and no complex things should be used in man pages.
-* tables:
+               RETURN           - close application and execute selected command
+  alternative: x
+               INSERT           - close application and type selected command
+  alternative: i
+               p                - close application and print selected command
 
-  - no header allowed
-  - always have a border
-  - cell alignment is always top/left.
+               /                - turn on/off search mode
+               e                - edit configuration file
+               TAB              - switch view between aliases and commands
+               v                - change layout between:
+                                  1. All items and displayable comments
+                                  2. No comments
+                                  3. No comments, items are sorted
 
-* images are not supported.
-
-Discussion is still open.
 

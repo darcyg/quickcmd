@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+#Author: Grzegorz Krason
+#webpage: http://krason.biz/#quickcmd
+
 import curses
 import subprocess
 import os
@@ -8,6 +11,8 @@ import os.path
 import sys
 import argparse
 from copy import copy
+
+version = '1.0.0'
 
 class AliasNotFound(Exception):
     """Exception raised when alias/command is not found
@@ -85,7 +90,7 @@ class Comment(ConfigItem):
 class QuickCmd(object): # must inherit from object to support properties
     """Engine, manages app data and gui
     """
-    def __init__(self):
+    def __init__(self, config_path):
         self.config_path = ''     # path to the config file
         self._selection_prev = -1 # previously selected item (see properties)
         self._selection = -1      # currently selected item (see properties)
@@ -103,7 +108,10 @@ class QuickCmd(object): # must inherit from object to support properties
 
         self.print_item = self.print_item_std  # printing function
 
-        self.config_path = os.path.expanduser('~' + os.path.sep + '.quickcmd')
+        if not config_path:
+            config_path = '~' + os.path.sep + '.quickcmd'
+
+        self.config_path = os.path.expanduser(config_path)
         self.read_config()
 
     @property
@@ -300,7 +308,7 @@ class QuickCmd(object): # must inherit from object to support properties
                 self.print_gui()
             elif k == 'q':
                 break
-            elif selected and k == '\n': # RETURN
+            elif selected and k in ['\n', 'x']: # RETURN or X
                 # Spawns the app with the command selected by user
                 self.command = self.items[self.selection].cmd
                 self.action = self.action_execute
@@ -322,8 +330,12 @@ class QuickCmd(object): # must inherit from object to support properties
             elif selected and k in ['KEY_UP', 'k']: # ARROW_UP or K
                 # Moves selection up by one item
                 i = self.selectables.index(self.selection)
-                self.selection = self.selectables[max(i-1, 0)]
-                self.print_gui_diff()
+                if i:
+                    self.selection = self.selectables[max(i-1, 0)]
+                    self.print_gui_diff()
+                else:
+                    self.display_offset = max(self.display_offset-1, 0)
+                    self.print_gui()
             elif selected and k in ['KEY_DOWN', 'j']: # ARROW_DOWN or J
                 # Moves selection down by one item
                 i = self.selectables.index(self.selection)
@@ -338,6 +350,13 @@ class QuickCmd(object): # must inherit from object to support properties
                 # Moves selection down by one group
                 i = selection2group(self.selection)
                 self.selection = self.groups[min(i+1, len(self.groups)-1)]
+                self.print_gui_diff()
+            elif k == 'KEY_HOME':
+                self.selection = self.selectables[0]
+                self.display_offset = 0
+                self.print_gui()
+            elif k == 'KEY_END':
+                self.selection = self.selectables[-1]
                 self.print_gui_diff()
             elif k == 'e':
                 # Opens config file in VI for editing
@@ -621,8 +640,12 @@ class QuickCmd(object): # must inherit from object to support properties
 
 def main(args):
 
+    if args.version:
+        print version
+        exit(0)
+
     try:
-        qc = QuickCmd()
+        qc = QuickCmd(args.config)
         if args.list:
             qc.list_aliases()
         else:
@@ -647,22 +670,44 @@ if __name__ == "__main__":
 
     description = \
     """
-    Gives quick access to the commands defined in advance. Each command can 
-    have own alias. Set of commands and aliases is defined in .quickcmd file
-    in your home directory.
+Gives quick access to the commands defined in advance. Each command can 
+have own alias. Set of commands and aliases is defined in .quickcmd file
+in your home directory.
 
-    Key bindings:
-    --------------
-    CTRL+C                        - close application
-    RETURN                        - close application and execute selected command
-    ARROW_UP                      - select previous command
-    ARROW_DOWN                    - select next command
-    PAGE_UP or SHIFT+ARROW_UP     - move selection to the previous group
-    PAGE_DOWN or SHIFT+ARROW_DOWN - move selection to the next group
-    TAB                           - edit configuration file
-    SPACE                         - switch view between aliases and commands
-    a-z                           - move selestion to the next command, alias of
-                                    witch begins with the given letter
+             Key bindings:
+             --------------
+             ARROW_UP         - select previous command
+alternative: k
+             ARROW_DOWN       - select next command
+alternative: j
+
+             PAGE_UP          - move selection to the previous group
+alternative: SHIFT+ARROW_UP
+alternative: SHIFT+k
+
+             PAGE_DOWN        - move selection to the next group
+alternative: SHIFT+ARROW_DOWN
+alternative: SHIFT+j
+
+             HOME             - scroll to the top
+             END              - scroll to the bottom
+             
+             CTRL+C           - close application
+alternative: q
+
+             RETURN           - close application and execute selected command
+alternative: x
+             INSERT           - close application and type selected command
+alternative: i
+             p                - close application and print selected command
+
+             /                - turn on/off search mode
+             e                - edit configuration file
+             TAB              - switch view between aliases and commands
+             v                - change layout between:
+                                1. All items and displayable comments
+                                2. No comments
+                                3. No comments, items are sorted
     """
 
     parser = argparse.ArgumentParser(description=description, formatter_class=argparse.RawTextHelpFormatter)
@@ -670,8 +715,10 @@ if __name__ == "__main__":
     parser.add_argument('-l', '--list', action='store_true', help='List available aliases')
     parser.add_argument('-p', '--stdout', action='store_true', help='Print command instead of executing')
     parser.add_argument('-i', '--insert', action='store_true', help='Edit command before execution')
-    parser.add_argument('-n', '--number', metavar='N', type=int, default=1, help='Item number (applicable when more than one item have the same alias)')
-    parser.add_argument('--debug', action='store_true', help='Prints whole call stack when exception occures')
+    parser.add_argument('-n', '--number', metavar='N', type=int, default=1, help='Item number (applicable when more than one item\nhave the same alias)')
+    parser.add_argument('-c', '--config', metavar='F', type=str, default='', help='Config file; default is ~/.quickcmd')
+    parser.add_argument('--debug', action='store_true', help='Print whole call stack when exception occures')
+    parser.add_argument('-V', '--version', action='store_true', help='Show version number and exit')
     args = parser.parse_args()
 
     main(args)
