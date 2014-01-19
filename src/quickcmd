@@ -589,7 +589,14 @@ class QuickCmd(object): # must inherit from object to support properties
            want to reimplement this method in a way so it is working in 
            terminal without X.
         """
-        text = cmd.replace('"', '\\"')
+
+        text = cmd
+        text = text.replace('\\', '\\\\')
+        text = text.replace('\n', '')
+        text = text.replace('\r', '')
+        for c in '`$"':
+            text = text.replace(c, '\\' + c)
+        
         ppid = os.getpid()
         cpid = os.fork()
 
@@ -604,10 +611,13 @@ class QuickCmd(object): # must inherit from object to support properties
             except OSError, e:
                 pass
 
-            os.system('echo -n "' + text + '" | ttype')
+            os.system('echo "' + text + '" | ttype -n')
+            # note: this is exexued in sh, not bash,
+            # echo works differently in sh and bash
 
 # TODO: Another action which would export the command as a 'bash alias', using '$ alias name=command'
 #       Probably not possible, http://stackoverflow.com/questions/19946321/create-unix-alias-using-a-python3-script
+#       alias is a built-in command
 
 def main(args):
 
