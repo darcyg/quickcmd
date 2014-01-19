@@ -1,0 +1,4 @@
+Gives quick access to the commands defined in advance. Each command can
+have own alias. Set of commands and aliases is defined in .quickcmd file
+in your home directory.
+

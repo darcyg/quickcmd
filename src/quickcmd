@@ -647,9 +647,9 @@ if __name__ == "__main__":
 
     description = \
     """
-    Gives quick access and allows to execute commands defined in advance.
-    Each command can have own alias. Set of commands and aliases is defined
-    in .quickcmd file in your home directory.
+    Gives quick access to the commands defined in advance. Each command can 
+    have own alias. Set of commands and aliases is defined in .quickcmd file
+    in your home directory.
 
     Key bindings:
     --------------
@@ -678,3 +678,5 @@ if __name__ == "__main__":
 
 
 
+#TODO:
+# bash autocompletition
