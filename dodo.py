@@ -65,7 +65,7 @@ def task_export():
                     'tar czvf ' + src_tgz_fp + ' -C' + src_dp + ' .',
                     'md5sum ' + src_tgz_fp + ' > ' + src_tgz_md5_fp,
                     gpgcmd('--batch --yes --detach-sign ' + src_tgz_fp)],
-        'file_dep': [],
+        'file_dep': [deb_fp],
         'targets': [deb_exp_fp,
                     deb_exp_md5_fp,
                     deb_exp_sig_fp,
@@ -121,7 +121,7 @@ def task_make():
 def task_dodo():
     return {
         'actions': [],
-        'targets': ['dodo.pyc'],
+        'targets': ['dodo.pyc', '.doit.db'],
         'clean': True,
         }
 
