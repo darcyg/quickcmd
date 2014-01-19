@@ -576,7 +576,7 @@ class QuickCmd(object): # must inherit from object to support properties
     def action_execute(self, cmd):
         """Executes command in underlaying shell
         """
-        subprocess.call(self.command, shell=True)
+        subprocess.call(cmd, shell=True)
 
     def action_print(self, cmd):
         """Prints command to stdout
