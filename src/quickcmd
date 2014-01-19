@@ -109,7 +109,11 @@ class QuickCmd(object): # must inherit from object to support properties
         self.print_item = self.print_item_std  # printing function
 
         if not config_path:
-            config_path = '~' + os.path.sep + '.quickcmd'
+            config_path = os.path.expanduser('~' + os.path.sep + '.quickcmd')
+
+            if not os.path.exists(config_path):
+                with open(config_path, 'w') as fh:
+                    fh.write(default_config)
 
         self.config_path = os.path.expanduser(config_path)
         self.read_config()
@@ -666,6 +670,69 @@ def main(args):
             print 'ERROR: ' + str(e)
             exit(1)
 
+
+#TODO:
+# bash autocompletition
+
+
+default_config = \
+"""
+## This is configuration file of quickcmd
+##
+## Following rules apply here:
+## - Spaces at the beginning and end of each line are removed.
+## - Lines which start with ## (double hash) are ignered (non-displayable
+##   comments).
+## - Lines which start with # (single hash) are displayed in bold
+##   (displayable comments)
+## - Displayable comments separate groups of commands.
+## - Empty lines before and after actual displayable content are ignored.
+## - Empty lines between displayable lines separate groups of commands and add
+##   a gap between them.
+## - Lines which are not specified above define commands. They begin with an
+##   alias.
+## - Alias is an alphanumeric identifier. It is separated from the actual
+##   command with any number of spaces.
+## - Alias is optional.
+
+
+## Information for new users:
+#-----------------------------------------------------------------------------
+# quickcmd is an application which allows you to execute commands defined in
+# advance. For more help please type quickcmd --help in terminal, or select
+# QuickCmdHelp below.
+#
+# This screen shows only exemplary configuration of quickcmd. To define your
+# own configuration please press 'e', or edit ~/.quickcmd file.
+#-----------------------------------------------------------------------------
+
+
+#Help
+QuickCmdHelp         quickcmd --help
+
+#System
+Id                   uname -a
+ListGroups           cat /etc/group | grep -Po '^[^:]*' | sort
+ListMacAddresses     sudo ifconfig | grep -Po 'HWaddr .*' | cut -c 8-
+CpusAndCores         cat /proc/cpuinfo | grep -P '(processor|cores).*'
+
+#Media
+ResizeImages         for image in *; do convert $image -resize 50% -quality 80 $image; done
+Dvd2Avi              mencoder -oac mp3lame -lameopts mode=2:cbr:br=96:vol=0 -ovc lavc -lavcopts vcodec=mpeg4:vbitrate=1200:vhq:autoaspect -vf pp=ci -o ~/<myfile.avi> VTS_01_{1,2,3,4,5}.VOB
+
+#Packages
+PackageRemove        apt-get --purge remove <package>
+PackageList          dpkg -L <package>
+PackageDetails       apt-cache show <package>
+PackageSearch        sudo apt-cache search <keyword>
+
+#Misc
+CurrencyRates        lynx -dump http://www.nbp.pl/Kursy/Kursya.html | grep -Po "10* (EUR|USD|GBP|CZK).*$"
+AlarmClock           echo 'mocp -S; mocp -p' | at 06:30
+TemperatureOutside   lynx --dump 'http://api.yr.no/weatherapi/locationforecast/1.8/?lat=60.10;lon=9.58' | grep -m 1 temperature | grep -Po '\-?[\d\.]*'
+"""
+
+
 if __name__ == "__main__":
 
     description = \
@@ -723,7 +790,3 @@ alternative: i
 
     main(args)
 
-
-
-#TODO:
-# bash autocompletition
