@@ -1,0 +1,18 @@
+Installation
+---------------------
+
+quickcmd is a python script. Simply copy it to your /usr/bin directory and
+make it executable.
+
+# chmod 755 /usr/bin/quickcmd
+
+Please note that you need to have python and vi. quickcmd also requires
+ttype (http://krason.biz/#quickcmd) to be installed.
+
+Finally it's recommended to make a short alias to quickcmd
+
+$ alias qq='quickcmd'
+
+You can also add the line above to your ~/.bashrc file.
+
+
