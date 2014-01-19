@@ -44,27 +44,27 @@ def chdir(dir_path='.'):
     path(dir_path).chdir()
 
 def task_export():
-    
-    class Gpg():
 
-        def __init__(self):
-            self.passphrase = getpass('GPG passphrase: ')
-    
-        def cmd(self, args):
-            b64pp = b64encode(self.passphrase)
+    def gpg():
+        args = yield None
+        passphrase = getpass('GPG passphrase: ')
+        b64pp = b64encode(passphrase)
+        while True:
             intro = 'gpg --passphrase $(echo %s | base64 -d) ' % b64pp
-            return CmdAction(intro + args)
-            
-    gpg = Gpg()
+            args = yield (intro + args)
+
+    gpggen = gpg()
+    gpggen.next()
+    gpgcmd = lambda args: CmdAction(lambda: gpggen.send(args))
 
     return {
         'actions': [(create_folder, [exp_dp]),
                     'cp ' + deb_fp + ' ' + deb_exp_fp,
                     'md5sum ' + deb_exp_fp + ' > ' + deb_exp_md5_fp,
-                    gpg.cmd('--batch --yes --detach-sign ' + deb_exp_fp),
+                    gpgcmd('--batch --yes --detach-sign ' + deb_exp_fp),
                     'tar czvf ' + src_tgz_fp + ' -C' + src_dp + ' .',
                     'md5sum ' + src_tgz_fp + ' > ' + src_tgz_md5_fp,
-                    gpg.cmd('--batch --yes --detach-sign ' + src_tgz_fp)],
+                    gpgcmd('--batch --yes --detach-sign ' + src_tgz_fp)],
         'file_dep': [],
         'targets': [deb_exp_fp,
                     deb_exp_md5_fp,
