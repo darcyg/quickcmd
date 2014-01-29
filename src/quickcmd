@@ -233,7 +233,7 @@ class QuickCmd(object): # must inherit from object to support properties
         items = self.items
         
         for item in items:
-            item.underline_from = item.alias.find(self.search_text)
+            item.underline_from = item.alias.lower().find(self.search_text)
             item.underline_len = len(self.search_text)
 
         items = filter(lambda i: i.underline_from>=0, items)
@@ -280,13 +280,14 @@ class QuickCmd(object): # must inherit from object to support properties
             #      probably keyboard driver can be accessed directly (ioctl?) as an alternative
 
             alphanum_range  = range(ord('a'), ord('z')+1)
+            alphanum_range += range(ord('A'), ord('Z')+1)
             alphanum_range += range(ord('0'), ord('9')+1)
             alphanum = [chr(x) for x in alphanum_range] + [' ', '_', '-', '.']
 
             if (self.search_text != None) and k in alphanum: # this must be the first case
                 if self.items: #searching in empty list doesn't make sense
                     self.save_selection_by_line()
-                    self.search_text += k
+                    self.search_text += k.lower()
                     self.filter_items()
                     self.restore_selection_by_line()
                     self.print_gui()
