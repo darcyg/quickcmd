@@ -6,12 +6,12 @@
 Gives quick access to the commands defined in advance.
 ------------------------------------------------------
 
-:Author: Grzegorz Krason <contact@krason.biz>
-:Date:   2014-01-19
+:Author: Grzegorz Krason <grzegorz@krason.me>
+:Date:   2016-01-09
 :Copyright: public domain
 :Version: 1.0.0
 :Manual section: 1
-:Website: http://krason.biz/#quickcmd
+:Website: http://krason.me/software/quickcmd.html
 
 SYNOPSIS
 ========

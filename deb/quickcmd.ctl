@@ -3,12 +3,12 @@
 # Source: <source package name; defaults to package name>
 # Section: misc
 # Priority: optional
-Homepage: http://www.krason.biz/#quickcmd
+Homepage: http://krason.me/software/quickcmd.html
 Standards-Version: 3.9.2
 
 Package: quickcmd
 Version: 1.0.0
-Maintainer: Grzegorz Krason <contact@krason.biz>
+Maintainer: Grzegorz Krason <grzegorz@krason.me>
 # Pre-Depends: <comma-separated list of packages>
 Depends: ttype (>= 1.0.0), python (>= 2.6)
 # Recommends: <comma-separated list of packages>
