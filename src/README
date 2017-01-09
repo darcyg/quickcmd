@@ -7,7 +7,7 @@ make it executable.
 # chmod 755 /usr/bin/quickcmd
 
 Please note that you need to have python and vi. quickcmd also requires
-ttype (http://krason.biz/#quickcmd) to be installed.
+ttype (http://krason.me/software/quickcmd.html) to be installed.
 
 Finally it's recommended to make a short alias to quickcmd
 
