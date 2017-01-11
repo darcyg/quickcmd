@@ -4,7 +4,11 @@ QuickCmd
 
 Curses-based utility which allows you to define a list of commands and then execute any of them when needed.
 
-`Video <http://krason.me/software/quickcmd/video.html>`_
+Click below to play video!
+
+.. image:: https://img.youtube.com/vi/3IyMC2kTu8Y/0.jpg
+   :alt: Tutorial
+   :target: https://youtu.be/3IyMC2kTu8Y
 
 Overview
 --------
